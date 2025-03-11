@@ -1,66 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Index</title>
-</head>
-<body>
-    <script type="module">
-        var M=()=>{let t=()=>{let e=document.location.href,r=document.querySelector("body"),s=new MutationObserver(()=>{e!==document.location.href&&(e=document.location.href,window.top&&(window.top.postMessage({type:"URL_CHANGED",url:document.location.href},"https://lovable.dev"),window.top.postMessage({type:"URL_CHANGED",url:document.location.href},"http://localhost:3000")))})};r&&s.observe(r,{childList:!0,subtree:!0})};window.addEventListener("load",t)};
-        var c={HIGHLIGHT_COLOR:"#0da2e7",HIGHLIGHT_BG:"#0da2e71a",ALLOWED_ORIGINS:["https://gptengineer.app","http://localhost:3000","https://lovable.dev"],DEBOUNCE_DELAY:10,Z_INDEX:1e4,TOOLTIP_OFFSET:25,MAX_TOOLTIP_WIDTH:200,SCROLL_DEBOUNCE:420,FULL_WIDTH_TOOLTIP_OFFSET:"12px",HIGHLIGHT_STYLE:{FULL_WIDTH:{OFFSET:"-5px",STYLE:"solid"},NORMAL:{OFFSET:"0",STYLE:"solid"}},SELECTED_ATTR:"data-lov-selected",HOVERED_ATTR:"data-lov-hovered",OVERRIDE_STYLESHEET_ID:"lovable-override"};
-        var f=t=>{c.ALLOWED_ORIGINS.forEach(e=>{try{if(!window.parent)return;if(!t||typeof t!=="object"){console.error("Invalid message format");return}window.parent.postMessage(t,e)}catch(r){console.error(`Failed to send message to ${e}:`,r)}})};
-        var Y=()=>new Promise(t=>{if(document.readyState!=="loading"){t();return}requestIdleCallback(()=>{t()})});
-        var P=async()=>{await Y();return window.__REACT_SUSPENSE_DONE&&await window.__REACT_SUSPENSE_DONE,!0};
-        var C=()=>new Promise(t=>{let e=document.getElementById("root");if(e&&e.children.length>0){t();return}new MutationObserver((s,o)=>{let d=document.getElementById("root");d&&d.children.length>0&&(o.disconnect(),t())}).observe(document.body,{childList:!0,subtree:!0})});
-        
-        var z=()=>{let t=window.fetch;
-            window.fetch=async function(...e){
-                let r=Date.now();
-                try{
-                    let s,o=await t(...e);
-                    f({type:"NETWORK_REQUEST",request:{url:e?.[0]||o.url,method:e?.[1]?.method||"GET",status:o.status,statusText:o.statusText,responseBody:o?.clone?.()?await o.clone().text():void 0,requestBody:s,timestamp:new Date().toISOString(),duration:Date.now()-r,origin:window.location.origin,headers:e?.[1]?.headers?Object.fromEntries(new Headers(e?.[1]?.headers)):{}}});
-                    return o;
-                }catch(s){
-                    let d={url:e?.[0],method:e?.[1]?.method||"GET",origin:window.location.origin,timestamp:new Date().toISOString(),duration:Date.now()-r,headers:e?.[1]?.headers?Object.fromEntries(new Headers(e?.[1]?.headers)):{},requestBody:s};
-                    throw f({type:"NETWORK_REQUEST",request:d}),s;
-                }
-            }
-        };
-        
-        var H=(()=>{let t=!1,e=({message:r,lineno:s,colno:o,filename:d,error:a})=>({message:r,lineno:s,colno:o,filename:d,stack:a?.stack});
-            return()=>{if(t)return;
-                let r=new Set,s=a=>r.has(a)?!0:(r.add(a),setTimeout(()=>r.delete(a),5e3),!1),o=a=>{let T=s(a);if(o(T))return;let i=e(a);f({type:"RUNTIME_ERROR",error:i})};
-                window.addEventListener("error",o);
-                window.addEventListener("unhandledrejection",a=>{
-                    if(!a.reason?.stack)return;
-                    let T=a.reason?.stack||a.reason?.message||String(a.reason);
-                    if(o(T))return;
-                    let i={message:a.reason?.message||"Unhandled promise rejection",stack:a.reason?.stack||String(a.reason)};
-                    f({type:"UNHANDLED_PROMISE_REJECTION",error:i})
-                });
-                t=!0;
-            }
-        })();
-        
-        var G=()=>{
-            class t{
-                constructor(){this.hoveredElement=null,this.isActive=!1,this.tooltip=null,this.scrollTimeout=null,this.mouseX=0,this.mouseY=0,this.styleElement=null}
-                reset(){this.hoveredElement=null,this.scrollTimeout=null}
-            }
-            let e=new t;
-            
-            let s=()=>{
-                e.tooltip=document.createElement("div");
-                e.tooltip.className="gpt-selector-tooltip";
-                e.tooltip.setAttribute("role","tooltip");
-                document.body.appendChild(e.tooltip);
-                let n=document.createElement("style");
-                n.textContent=`.gpt-selector-tooltip { position: fixed; z-index: ${c.Z_INDEX}; pointer-events: none; background-color: ${c.HIGHLIGHT_COLOR}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 14px; font-weight: bold; line-height: 1; white-space: nowrap; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: opacity 0.2s ease-in-out; margin: 0; }`;
-                document.head.appendChild(n);
-            };
-            s();
-        };
-    </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tacktix-battle-bet</title>
+    <meta name="description" content="Lovable Generated Project" />
+    <meta name="author" content="Lovable" />
+    <meta property="og:image" content="/og-image.png" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
+    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
