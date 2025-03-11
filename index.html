@@ -6,12 +6,12 @@
     <title>Index</title>
 </head>
 <body>
-    <script>
-        var M=()=>{let t=()=>{let e=document.location.href,r=document.querySelector("body"),s=new MutationObserver(()=>{e!==document.location.href&&(e=document.location.href,window.top&&(window.top.postMessage({type:"URL_CHANGED",url:document.location.href},"https://lovable.dev"),window.top.postMessage({type:"URL_CHANGED",url:document.location.href},"http://localhost:3000")))});r&&s.observe(r,{childList:!0,subtree:!0})};window.addEventListener("load",t)};
+    <script type="module">
+        var M=()=>{let t=()=>{let e=document.location.href,r=document.querySelector("body"),s=new MutationObserver(()=>{e!==document.location.href&&(e=document.location.href,window.top&&(window.top.postMessage({type:"URL_CHANGED",url:document.location.href},"https://lovable.dev"),window.top.postMessage({type:"URL_CHANGED",url:document.location.href},"http://localhost:3000")))})};r&&s.observe(r,{childList:!0,subtree:!0})};window.addEventListener("load",t)};
         var c={HIGHLIGHT_COLOR:"#0da2e7",HIGHLIGHT_BG:"#0da2e71a",ALLOWED_ORIGINS:["https://gptengineer.app","http://localhost:3000","https://lovable.dev"],DEBOUNCE_DELAY:10,Z_INDEX:1e4,TOOLTIP_OFFSET:25,MAX_TOOLTIP_WIDTH:200,SCROLL_DEBOUNCE:420,FULL_WIDTH_TOOLTIP_OFFSET:"12px",HIGHLIGHT_STYLE:{FULL_WIDTH:{OFFSET:"-5px",STYLE:"solid"},NORMAL:{OFFSET:"0",STYLE:"solid"}},SELECTED_ATTR:"data-lov-selected",HOVERED_ATTR:"data-lov-hovered",OVERRIDE_STYLESHEET_ID:"lovable-override"};
-        var f=t=>{c.ALLOWED_ORIGINS.forEach(e=>{try{if(!window.parent)return;if(!t||typeof t!="object"){console.error("Invalid message format");return}window.parent.postMessage(t,e)}catch(r){console.error(`Failed to send message to ${e}:`,r)}})};
+        var f=t=>{c.ALLOWED_ORIGINS.forEach(e=>{try{if(!window.parent)return;if(!t||typeof t!=="object"){console.error("Invalid message format");return}window.parent.postMessage(t,e)}catch(r){console.error(`Failed to send message to ${e}:`,r)}})};
         var Y=()=>new Promise(t=>{if(document.readyState!=="loading"){t();return}requestIdleCallback(()=>{t()})});
-        var P=async()=>{await Y();let t=import.meta.hot;return t&&await new Promise(e=>{let r=()=>{if(!t.data.pending){e();return}setTimeout(r,50)};r()}),window.__REACT_SUSPENSE_DONE&&await window.__REACT_SUSPENSE_DONE,!0};
+        var P=async()=>{await Y();return window.__REACT_SUSPENSE_DONE&&await window.__REACT_SUSPENSE_DONE,!0};
         var C=()=>new Promise(t=>{let e=document.getElementById("root");if(e&&e.children.length>0){t();return}new MutationObserver((s,o)=>{let d=document.getElementById("root");d&&d.children.length>0&&(o.disconnect(),t())}).observe(document.body,{childList:!0,subtree:!0})});
         
         var z=()=>{let t=window.fetch;
