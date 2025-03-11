@@ -1,6 +1,6 @@
 
 import Layout from "@/components/layout/Layout";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ArrowDown, 

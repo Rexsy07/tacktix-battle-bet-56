@@ -1,5 +1,5 @@
 
-import { Button } from "./Button";
+import { Button } from "@/components/ui/button";
 import { Clock, Users, Trophy, Map } from "lucide-react";
 
 interface GameCardProps {

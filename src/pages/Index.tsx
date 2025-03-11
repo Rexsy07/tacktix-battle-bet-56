@@ -5,7 +5,7 @@ import FeaturedMatches from "@/components/home/FeaturedMatches";
 import GameModes from "@/components/home/GameModes";
 import LiveMatches from "@/components/home/LiveMatches";
 import Leaderboard from "@/components/home/Leaderboard";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
 const Index = () => {

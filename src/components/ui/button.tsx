@@ -1,3 +1,3 @@
 
-// This file redirects to Button.tsx to avoid casing conflicts
+// Re-export from Button.tsx to maintain consistent casing
 export * from './Button';

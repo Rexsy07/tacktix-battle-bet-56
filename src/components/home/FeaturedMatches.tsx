@@ -1,7 +1,7 @@
 
 import { ArrowRight } from "lucide-react";
 import GameCard from "@/components/ui/GameCard";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
 const FeaturedMatches = () => {

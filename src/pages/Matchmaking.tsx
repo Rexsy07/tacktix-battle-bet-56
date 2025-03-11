@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import Layout from "@/components/layout/Layout";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import MatchTypeCard from "@/components/ui/MatchTypeCard";
 import { 
   Search, Target, Bomb, Flag, Users, Crosshair, Map as MapIcon, 

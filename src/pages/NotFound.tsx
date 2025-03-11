@@ -1,5 +1,5 @@
 
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Home } from "lucide-react";

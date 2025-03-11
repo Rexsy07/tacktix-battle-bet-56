@@ -1,5 +1,5 @@
 
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { ArrowRight, DollarSign, Shield, Zap } from "lucide-react";
 
 const HeroSection = () => {
