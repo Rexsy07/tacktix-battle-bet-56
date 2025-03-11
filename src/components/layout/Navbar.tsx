@@ -71,11 +71,13 @@ const Navbar = () => {
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-3">
             <Button variant="ghost" size="sm" className="text-sm">
-              <LogIn className="w-4 h-4 mr-2" />
-              Sign In
+              <Link to="/sign-in" className="flex items-center">
+                <LogIn className="w-4 h-4 mr-2" />
+                Sign In
+              </Link>
             </Button>
             <Button variant="gradient" size="sm" animation="pulseglow" className="text-sm">
-              Get Started
+              <Link to="/sign-up">Get Started</Link>
             </Button>
           </div>
 
@@ -109,11 +111,13 @@ const Navbar = () => {
             ))}
             <div className="pt-2 grid grid-cols-2 gap-3">
               <Button variant="ghost" className="w-full text-sm">
-                <LogIn className="w-4 h-4 mr-2" />
-                Sign In
+                <Link to="/sign-in" className="flex items-center w-full justify-center">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign In
+                </Link>
               </Button>
               <Button variant="gradient" animation="pulseglow" className="w-full text-sm">
-                Get Started
+                <Link to="/sign-up" className="w-full">Get Started</Link>
               </Button>
             </div>
           </div>
