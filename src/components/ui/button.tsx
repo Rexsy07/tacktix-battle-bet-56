@@ -16,6 +16,8 @@ const buttonVariants = cva(
         link: "text-tacktix-blue underline-offset-4 hover:underline",
         gradient: "bg-gradient-to-r from-tacktix-blue to-tacktix-blue-dark text-white hover:shadow-lg shadow-md hover:shadow-tacktix-blue/20 border border-tacktix-blue/20",
         glow: "bg-tacktix-blue text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.7)] hover:bg-tacktix-blue-dark",
+        badge: "bg-gradient-to-r from-tacktix-blue/10 to-tacktix-blue/20 text-tacktix-blue hover:from-tacktix-blue/20 hover:to-tacktix-blue/30 border border-tacktix-blue/20",
+        success: "bg-green-600 text-white hover:bg-green-700 shadow-md hover:shadow-lg",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -23,6 +25,7 @@ const buttonVariants = cva(
         lg: "h-12 px-6 text-base",
         xl: "h-14 px-8 text-lg",
         icon: "h-10 w-10",
+        badge: "h-6 px-2 text-xs",
       },
       animation: {
         none: "",

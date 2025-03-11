@@ -12,6 +12,7 @@ import ProfileSetup from "./pages/ProfileSetup";
 import Wallet from "./pages/Wallet";
 import History from "./pages/History";
 import Matchmaking from "./pages/Matchmaking";
+import Leaderboards from "./pages/Leaderboards";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/history" element={<History />} />
           <Route path="/matchmaking" element={<Matchmaking />} />
+          <Route path="/leaderboards" element={<Leaderboards />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
