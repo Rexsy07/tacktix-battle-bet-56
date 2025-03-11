@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import Layout from "@/components/layout/Layout";
 import MatchTypeCard from "@/components/ui/MatchTypeCard";
@@ -223,12 +224,16 @@ const Matchmaking = () => {
                         </div>
                         
                         <div className="md:w-1/4 p-5 flex flex-col justify-center items-center">
-                          <Button variant="gradient" className="w-full mb-2">
-                            Join Match
-                          </Button>
-                          <Button variant="outline" className="w-full text-xs">
-                            View Details
-                          </Button>
+                          <Link to={`/match/${match.id}`} className="w-full mb-2">
+                            <Button variant="gradient" className="w-full">
+                              Join Match
+                            </Button>
+                          </Link>
+                          <Link to={`/match/${match.id}`} className="w-full">
+                            <Button variant="outline" className="w-full text-xs">
+                              View Details
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                     </Card>

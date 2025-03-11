@@ -18,6 +18,7 @@ const badgeVariants = cva(
         outline: "text-foreground",
         success:
           "border-transparent bg-green-600 text-white hover:bg-green-700",
+        badge: "bg-gradient-to-r from-tacktix-blue/10 to-tacktix-blue/20 text-tacktix-blue hover:from-tacktix-blue/20 hover:to-tacktix-blue/30 border border-tacktix-blue/20",
       },
     },
     defaultVariants: {
