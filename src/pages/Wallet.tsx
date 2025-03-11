@@ -1,390 +1,405 @@
 
 import { useState } from "react";
 import Layout from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Plus, ArrowDown, ArrowUp, Clock, DollarSign, Copy } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { CreditCard, Wallet as WalletIcon, History, ArrowUpRight, ArrowDownLeft, Plus, RefreshCw } from "lucide-react";
 
-// Sample transaction data
-const transactions = [
-  { 
-    id: 1, 
-    type: "deposit", 
-    amount: 5000, 
-    status: "completed", 
-    date: "2023-09-24 14:32", 
-    description: "Bank Transfer Deposit" 
-  },
-  { 
-    id: 2, 
-    type: "betting", 
-    amount: -2000, 
-    status: "completed", 
-    date: "2023-09-25 16:45", 
-    description: "Match bet: S&D on Standoff" 
-  },
-  { 
-    id: 3, 
-    type: "winning", 
-    amount: 3800, 
-    status: "completed", 
-    date: "2023-09-25 17:20", 
-    description: "Match win: S&D on Standoff" 
-  },
-  { 
-    id: 4, 
-    type: "withdraw", 
-    amount: -5000, 
-    status: "processing", 
-    date: "2023-09-26 10:10", 
-    description: "Withdrawal to Bank Account" 
-  },
-  { 
-    id: 5, 
-    type: "betting", 
-    amount: -1000, 
-    status: "completed", 
-    date: "2023-09-26 18:56", 
-    description: "Match bet: Hardpoint on Nuketown" 
-  }
-];
-
-const WalletPage = () => {
+const Wallet = () => {
   const { toast } = useToast();
+  const [balance, setBalance] = useState("₦25,000");
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [selectedPresetAmount, setSelectedPresetAmount] = useState<string | null>(null);
-  const walletBalance = 10800; // Sample balance in Naira (₦)
-
-  const presetAmounts = [
-    { value: "1000", label: "₦1,000" },
-    { value: "2000", label: "₦2,000" },
-    { value: "3000", label: "₦3,000" },
-    { value: "5000", label: "₦5,000" },
-    { value: "10000", label: "₦10,000" }
-  ];
-
-  const copyWalletId = () => {
-    navigator.clipboard.writeText("TT-7835-2945-8361");
-    toast({
-      title: "Copied!",
-      description: "Wallet ID copied to clipboard",
-    });
-  };
-
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   const handleDeposit = () => {
-    if (!depositAmount || parseInt(depositAmount) < 1000) {
+    if (!depositAmount || Number(depositAmount) <= 0) {
       toast({
-        title: "Error",
-        description: "Minimum deposit amount is ₦1,000",
+        title: "Invalid amount",
+        description: "Please enter a valid deposit amount.",
         variant: "destructive",
       });
       return;
     }
-
-    // Process deposit (would integrate with payment gateway in real app)
-    toast({
-      title: "Deposit initiated",
-      description: `Depositing ₦${parseInt(depositAmount).toLocaleString()}`,
-    });
+    
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setBalance(`₦${(parseInt(balance.replace(/[^\d]/g, "")) + parseInt(depositAmount)).toLocaleString()}`);
+      setDepositAmount("");
+      toast({
+        title: "Deposit Successful",
+        description: `₦${parseInt(depositAmount).toLocaleString()} has been added to your wallet.`,
+      });
+    }, 1500);
   };
-
+  
   const handleWithdraw = () => {
-    if (!withdrawAmount || parseInt(withdrawAmount) < 1000) {
+    if (!withdrawAmount || Number(withdrawAmount) <= 0) {
       toast({
-        title: "Error",
-        description: "Minimum withdrawal amount is ₦1,000",
+        title: "Invalid amount",
+        description: "Please enter a valid withdrawal amount.",
         variant: "destructive",
       });
       return;
     }
-
-    if (parseInt(withdrawAmount) > walletBalance) {
+    
+    const currentBalance = parseInt(balance.replace(/[^\d]/g, ""));
+    if (parseInt(withdrawAmount) > currentBalance) {
       toast({
         title: "Insufficient funds",
-        description: "Your withdrawal amount exceeds your available balance",
+        description: "You don't have enough funds to withdraw this amount.",
         variant: "destructive",
       });
       return;
     }
-
-    // Process withdrawal (would integrate with payment gateway in real app)
-    toast({
-      title: "Withdrawal initiated",
-      description: `Withdrawing ₦${parseInt(withdrawAmount).toLocaleString()}`,
-    });
+    
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setBalance(`₦${(currentBalance - parseInt(withdrawAmount)).toLocaleString()}`);
+      setWithdrawAmount("");
+      toast({
+        title: "Withdrawal Initiated",
+        description: `₦${parseInt(withdrawAmount).toLocaleString()} will be sent to your preferred payment method.`,
+      });
+    }, 1500);
   };
-
-  const handlePresetAmountClick = (amount: string) => {
-    setSelectedPresetAmount(amount);
-    setDepositAmount(amount);
-  };
-
+  
+  const recentTransactions = [
+    {
+      id: "tx-1",
+      type: "deposit",
+      amount: "₦10,000",
+      date: "June 12, 2023",
+      status: "completed"
+    },
+    {
+      id: "tx-2",
+      type: "withdraw",
+      amount: "₦5,000",
+      date: "June 10, 2023",
+      status: "completed"
+    },
+    {
+      id: "tx-3",
+      type: "win",
+      amount: "₦12,000",
+      date: "June 9, 2023",
+      status: "completed"
+    },
+    {
+      id: "tx-4",
+      type: "lose",
+      amount: "₦8,000",
+      date: "June 8, 2023",
+      status: "completed"
+    },
+    {
+      id: "tx-5",
+      type: "deposit",
+      amount: "₦15,000",
+      date: "June 5, 2023",
+      status: "completed"
+    }
+  ];
+  
+  const quickAmounts = [1000, 2000, 5000, 10000];
+  
   return (
     <Layout>
-      <div className="py-6">
-        <div className="container max-w-4xl">
-          <h1 className="text-2xl font-bold mb-6">Wallet</h1>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="col-span-1 md:col-span-2">
-              <div className="glass-card rounded-xl p-6 h-full">
-                <div className="flex flex-col h-full">
-                  <div className="mb-6">
-                    <p className="text-sm text-gray-400 mb-1">Available Balance</p>
-                    <h2 className="text-4xl font-bold text-white">₦{walletBalance.toLocaleString()}</h2>
-                  </div>
-
-                  <div className="mb-4 flex items-center">
-                    <p className="text-sm text-gray-400 mr-2">Wallet ID:</p>
-                    <code className="bg-tacktix-dark-light text-xs px-2 py-1 rounded">TT-7835-2945-8361</code>
-                    <button 
-                      onClick={copyWalletId} 
-                      className="ml-2 text-tacktix-blue hover:text-tacktix-blue-light"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-
-                  <div className="mt-auto grid grid-cols-2 gap-3">
-                    <Button variant="outline" className="flex items-center justify-center">
-                      <ArrowDown size={16} className="mr-2" />
-                      Deposit
-                    </Button>
-                    <Button variant="outline" className="flex items-center justify-center">
-                      <ArrowUp size={16} className="mr-2" />
-                      Withdraw
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-span-1">
-              <div className="glass-card rounded-xl p-6 h-full">
-                <h3 className="font-medium mb-4">Quick Stats</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-tacktix-blue/20 flex items-center justify-center mr-3">
-                        <ArrowUp size={14} className="text-tacktix-blue" />
-                      </div>
-                      <span className="text-sm text-gray-300">Total Spent</span>
-                    </div>
-                    <span className="font-medium">₦8,000</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center mr-3">
-                        <ArrowDown size={14} className="text-green-500" />
-                      </div>
-                      <span className="text-sm text-gray-300">Total Earned</span>
-                    </div>
-                    <span className="font-medium">₦13,800</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-tacktix-red/20 flex items-center justify-center mr-3">
-                        <DollarSign size={14} className="text-tacktix-red" />
-                      </div>
-                      <span className="text-sm text-gray-300">Win Rate</span>
-                    </div>
-                    <span className="font-medium">67%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 mb-8">
-            <div className="glass-card rounded-xl p-6">
-              <Tabs defaultValue="deposit">
-                <TabsList className="grid grid-cols-2 mb-6">
-                  <TabsTrigger value="deposit">Deposit</TabsTrigger>
-                  <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="deposit" className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Deposit Funds</h3>
-                    <p className="text-sm text-gray-400 mb-6">Add money to your TacktixEdge wallet to start betting.</p>
-                    
-                    <div className="space-y-6">
-                      <div>
-                        <label className="text-sm text-gray-300 mb-2 block">Choose Amount</label>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
-                          {presetAmounts.map((amount) => (
-                            <button
-                              key={amount.value}
-                              type="button"
-                              className={`py-2 rounded-md text-sm transition-colors ${
-                                selectedPresetAmount === amount.value
-                                  ? "bg-tacktix-blue text-white"
-                                  : "bg-tacktix-dark-light text-gray-300 hover:bg-tacktix-dark"
-                              }`}
-                              onClick={() => handlePresetAmountClick(amount.value)}
-                            >
-                              {amount.label}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        <div className="mb-6">
-                          <label className="text-sm text-gray-300 mb-2 block">Or Enter Custom Amount</label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <span className="text-gray-400">₦</span>
-                            </div>
-                            <Input
-                              type="number"
-                              min="1000"
-                              placeholder="Minimum ₦1,000"
-                              className="pl-8 bg-tacktix-dark-light text-white border-tacktix-dark-light focus:border-tacktix-blue"
-                              value={depositAmount}
-                              onChange={(e) => {
-                                setDepositAmount(e.target.value);
-                                setSelectedPresetAmount(null);
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs text-gray-400 mt-1">Minimum deposit: ₦1,000</p>
-                        </div>
-                        
-                        <Button 
-                          variant="gradient" 
-                          className="w-full" 
-                          onClick={handleDeposit}
-                        >
-                          <Plus size={16} className="mr-2" />
-                          Deposit Funds
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="withdraw" className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Withdraw Funds</h3>
-                    <p className="text-sm text-gray-400 mb-6">Transfer money from your TacktixEdge wallet to your bank account.</p>
-                    
-                    <div className="space-y-6">
-                      <div className="mb-6">
-                        <label className="text-sm text-gray-300 mb-2 block">Enter Withdrawal Amount</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-400">₦</span>
-                          </div>
-                          <Input
-                            type="number"
-                            min="1000"
-                            max={walletBalance}
-                            placeholder="Minimum ₦1,000"
-                            className="pl-8 bg-tacktix-dark-light text-white border-tacktix-dark-light focus:border-tacktix-blue"
-                            value={withdrawAmount}
-                            onChange={(e) => setWithdrawAmount(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-400 mt-1">
-                          <span>Minimum: ₦1,000</span>
-                          <span>Available: ₦{walletBalance.toLocaleString()}</span>
-                        </div>
-                      </div>
-                      
-                      <Button 
-                        variant="gradient" 
-                        className="w-full" 
-                        onClick={handleWithdraw}
-                      >
-                        <ArrowUp size={16} className="mr-2" />
-                        Withdraw Funds
-                      </Button>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          </div>
-
-          <div className="glass-card rounded-xl p-6">
-            <h3 className="text-lg font-medium mb-6">Transaction History</h3>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    <th className="py-3 px-2 text-left text-xs uppercase tracking-wider text-gray-400 font-medium">Date & Time</th>
-                    <th className="py-3 px-2 text-left text-xs uppercase tracking-wider text-gray-400 font-medium">Description</th>
-                    <th className="py-3 px-2 text-left text-xs uppercase tracking-wider text-gray-400 font-medium">Status</th>
-                    <th className="py-3 px-2 text-right text-xs uppercase tracking-wider text-gray-400 font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b border-white/5 hover:bg-white/5">
-                      <td className="py-4 px-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="mr-3">
-                            {transaction.type === "deposit" && (
-                              <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                                <ArrowDown size={14} className="text-green-500" />
-                              </div>
-                            )}
-                            {transaction.type === "withdraw" && (
-                              <div className="h-8 w-8 rounded-full bg-tacktix-blue/10 flex items-center justify-center">
-                                <ArrowUp size={14} className="text-tacktix-blue" />
-                              </div>
-                            )}
-                            {transaction.type === "betting" && (
-                              <div className="h-8 w-8 rounded-full bg-tacktix-red/10 flex items-center justify-center">
-                                <DollarSign size={14} className="text-tacktix-red" />
-                              </div>
-                            )}
-                            {transaction.type === "winning" && (
-                              <div className="h-8 w-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                                <DollarSign size={14} className="text-yellow-500" />
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-gray-300">{transaction.date}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-2">
-                        <span className="text-white">{transaction.description}</span>
-                      </td>
-                      <td className="py-4 px-2">
-                        {transaction.status === "completed" ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-500">
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/10 text-yellow-500">
-                            <Clock size={12} className="mr-1" />
-                            Processing
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-2 text-right whitespace-nowrap">
-                        <span className={transaction.amount > 0 ? "text-green-500" : "text-red-500"}>
-                          {transaction.amount > 0 ? "+" : ""}₦{transaction.amount.toLocaleString()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      <div className="space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">My Wallet</h1>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs"
+            onClick={() => {
+              toast({
+                title: "Refreshed",
+                description: "Your wallet balance has been updated.",
+              });
+            }}
+          >
+            <RefreshCw size={14} className="mr-2" />
+            Refresh
+          </Button>
         </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-2 glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl flex items-center">
+                <WalletIcon size={20} className="mr-2 text-tacktix-blue" />
+                Wallet Balance
+              </CardTitle>
+              <CardDescription>
+                Your current available balance
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="py-4 text-center">
+                <div className="text-4xl font-bold text-tacktix-blue mb-2">{balance}</div>
+                <p className="text-gray-400 text-sm">Available for betting and withdrawal</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <Button variant="gradient" onClick={() => document.getElementById('deposit-tab')?.click()}>
+                  <Plus size={16} className="mr-2" />
+                  Deposit
+                </Button>
+                <Button variant="outline" onClick={() => document.getElementById('withdraw-tab')?.click()}>
+                  <ArrowUpRight size={16} className="mr-2" />
+                  Withdraw
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl flex items-center">
+                <History size={20} className="mr-2 text-tacktix-blue" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>
+                Your latest transactions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {recentTransactions.slice(0, 3).map(transaction => (
+                  <div key={transaction.id} className="flex justify-between items-center p-2 rounded-md hover:bg-white/5">
+                    <div className="flex items-center">
+                      {transaction.type === "deposit" ? (
+                        <ArrowDownLeft size={16} className="text-green-500 mr-2" />
+                      ) : transaction.type === "withdraw" ? (
+                        <ArrowUpRight size={16} className="text-tacktix-red mr-2" />
+                      ) : transaction.type === "win" ? (
+                        <Plus size={16} className="text-green-500 mr-2" />
+                      ) : (
+                        <WalletIcon size={16} className="text-tacktix-red mr-2" />
+                      )}
+                      <div>
+                        <div className="text-sm font-medium">
+                          {transaction.type === "deposit" ? "Deposit" : 
+                            transaction.type === "withdraw" ? "Withdrawal" : 
+                            transaction.type === "win" ? "Match Win" : "Match Loss"}
+                        </div>
+                        <div className="text-xs text-gray-400">{transaction.date}</div>
+                      </div>
+                    </div>
+                    <div className={`font-medium ${
+                      transaction.type === "deposit" || transaction.type === "win" 
+                        ? "text-green-500" 
+                        : "text-tacktix-red"}`}
+                    >
+                      {transaction.type === "deposit" || transaction.type === "win" ? "+" : "-"}{transaction.amount}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="link" className="w-full mt-2 text-xs" onClick={() => document.getElementById('history-tab')?.click()}>
+                View All Transactions
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <Tabs defaultValue="deposit" className="w-full">
+          <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
+            <TabsTrigger value="deposit" id="deposit-tab">Deposit</TabsTrigger>
+            <TabsTrigger value="withdraw" id="withdraw-tab">Withdraw</TabsTrigger>
+            <TabsTrigger value="history" id="history-tab">History</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="deposit">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Deposit Funds</CardTitle>
+                <CardDescription>Add money to your TacktixEdge wallet</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Amount (₦)</label>
+                  <Input
+                    type="number"
+                    placeholder="Enter amount"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    className="bg-tacktix-dark-light text-white"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Quick Amounts</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {quickAmounts.map(amount => (
+                      <Button 
+                        key={amount}
+                        type="button" 
+                        variant="outline"
+                        className="bg-tacktix-dark-light"
+                        onClick={() => setDepositAmount(amount.toString())}
+                      >
+                        ₦{amount.toLocaleString()}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Method</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button variant="outline" className="justify-start bg-tacktix-dark-light">
+                      <CreditCard size={16} className="mr-2" />
+                      Debit/Credit Card
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="gradient" 
+                  className="w-full" 
+                  onClick={handleDeposit}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? 'Processing...' : 'Deposit Funds'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="withdraw">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Withdraw Funds</CardTitle>
+                <CardDescription>Transfer money from your wallet to your bank account</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Available Balance</label>
+                  <div className="text-xl font-bold text-tacktix-blue">{balance}</div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Amount (₦)</label>
+                  <Input
+                    type="number"
+                    placeholder="Enter amount"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    className="bg-tacktix-dark-light text-white"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Quick Amounts</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {quickAmounts.map(amount => (
+                      <Button 
+                        key={amount}
+                        type="button" 
+                        variant="outline"
+                        className="bg-tacktix-dark-light"
+                        onClick={() => setWithdrawAmount(amount.toString())}
+                      >
+                        ₦{amount.toLocaleString()}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Withdrawal Method</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button variant="outline" className="justify-start bg-tacktix-dark-light">
+                      <CreditCard size={16} className="mr-2" />
+                      Bank Transfer
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="gradient" 
+                  className="w-full" 
+                  onClick={handleWithdraw}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? 'Processing...' : 'Withdraw Funds'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Transaction History</CardTitle>
+                <CardDescription>View all your previous transactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {recentTransactions.map(transaction => (
+                    <div 
+                      key={transaction.id} 
+                      className="flex justify-between items-center p-3 rounded-md hover:bg-white/5 border border-white/5"
+                    >
+                      <div className="flex items-center">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
+                          transaction.type === "deposit" || transaction.type === "win" 
+                            ? "bg-green-500/10 text-green-500" 
+                            : "bg-tacktix-red/10 text-tacktix-red"
+                        }`}>
+                          {transaction.type === "deposit" ? (
+                            <ArrowDownLeft size={18} />
+                          ) : transaction.type === "withdraw" ? (
+                            <ArrowUpRight size={18} />
+                          ) : transaction.type === "win" ? (
+                            <Plus size={18} />
+                          ) : (
+                            <WalletIcon size={18} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium">
+                            {transaction.type === "deposit" ? "Deposit" : 
+                              transaction.type === "withdraw" ? "Withdrawal" : 
+                              transaction.type === "win" ? "Match Win" : "Match Loss"}
+                          </div>
+                          <div className="text-sm text-gray-400">{transaction.date}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className={`text-right font-medium ${
+                          transaction.type === "deposit" || transaction.type === "win" 
+                            ? "text-green-500" 
+                            : "text-tacktix-red"}`}
+                        >
+                          {transaction.type === "deposit" || transaction.type === "win" ? "+" : "-"}{transaction.amount}
+                        </div>
+                        <div className="text-right text-sm">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-500">
+                            {transaction.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
 };
 
-export default WalletPage;
+export default Wallet;

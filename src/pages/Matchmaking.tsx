@@ -1,533 +1,633 @@
 
 import { useState } from "react";
-import Layout from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
-import MatchTypeCard from "@/components/ui/MatchTypeCard";
-import { 
-  Search, Target, Bomb, Flag, Users, Crosshair, Map as MapIcon, 
-  PlusCircle, Filter, DollarSign, Users as UsersIcon, Clock
-} from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
-import GameCard from "@/components/ui/GameCard";
 import { useToast } from "@/components/ui/use-toast";
+import Layout from "@/components/layout/Layout";
+import MatchTypeCard from "@/components/ui/MatchTypeCard";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Search, FilterX, Target, Trophy, Shield, Swords, Gamepad2, Users, 
+  Timer, Map, Crosshair, AlertCircle, ArrowRight, PlusCircle
+} from "lucide-react";
 
 const gameModes = [
-  { id: 'snd', title: "Search & Destroy", icon: <Bomb size={24} /> },
-  { id: 'hp', title: "Hardpoint", icon: <Target size={24} /> },
-  { id: 'dom', title: "Domination", icon: <Flag size={24} /> },
-  { id: 'tdm', title: "Team Deathmatch", icon: <Users size={24} /> },
-  { id: 'gf', title: "Gunfight", icon: <Crosshair size={24} /> },
-  { id: 'br', title: "Battle Royale", icon: <MapIcon size={24} /> },
+  { id: "snd", name: "Search & Destroy", icon: <Shield size={20} />, maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"] },
+  { id: "hp", name: "Hardpoint", icon: <Target size={20} />, maps: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"] },
+  { id: "dom", name: "Domination", icon: <Crosshair size={20} />, maps: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"] },
+  { id: "tdm", name: "Team Deathmatch", icon: <Swords size={20} />, maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"] },
+  { id: "br", name: "Battle Royale", icon: <Map size={20} />, maps: ["Isolated", "Alcatraz"] },
+  { id: "gf", name: "Gunfight", icon: <Trophy size={20} />, maps: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"] },
 ];
 
-const modeToMaps = {
-  snd: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"],
-  hp: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"],
-  dom: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"],
-  tdm: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"],
-  gf: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"],
-  br: ["Isolated", "Alcatraz"]
-};
-
-const teamSizeOptions = [
-  { value: "1v1", label: "1v1" },
-  { value: "2v2", label: "2v2" },
-  { value: "3v3", label: "3v3" },
-  { value: "5v5", label: "5v5" },
-  { value: "squads", label: "Squads (BR)" },
+const teamSizes = [
+  { id: "1v1", name: "1v1", modes: ["snd", "tdm", "gf", "br"] },
+  { id: "2v2", name: "2v2", modes: ["snd", "tdm", "gf", "hp"] },
+  { id: "3v3", name: "3v3", modes: ["snd", "tdm", "hp", "dom"] },
+  { id: "5v5", name: "5v5", modes: ["snd", "tdm", "hp", "dom"] },
+  { id: "squads", name: "Squads", modes: ["br"] },
 ];
 
-const betAmountPresets = [
-  { value: 1000, label: "₦1,000" },
-  { value: 2000, label: "₦2,000" },
-  { value: 3000, label: "₦3,000" },
-  { value: 5000, label: "₦5,000" },
-  { value: 10000, label: "₦10,000" },
-];
+const betAmounts = [1000, 2000, 3000, 5000, 10000];
 
-// Sample available matches
-const availableMatches = [
-  {
-    id: 1,
-    mode: "Search & Destroy",
-    map: "Standoff",
-    betAmount: "₦5,000",
-    teamSize: "5v5",
-    timeLeft: "12 min",
-    players: [
-      { name: "xSniperKing", winRate: "78%" },
-      { name: "DeadlyAssault", winRate: "65%" }
-    ]
-  },
-  {
-    id: 2,
-    mode: "Hardpoint",
-    map: "Nuketown",
-    betAmount: "₦3,000",
-    teamSize: "3v3",
-    timeLeft: "5 min",
-    players: [
-      { name: "FragMaster", winRate: "82%" },
-      { name: "ShadowNinja", winRate: "75%" }
-    ]
-  },
-  {
-    id: 3,
-    mode: "Battle Royale",
-    map: "Isolated",
-    betAmount: "₦2,000",
-    teamSize: "Squads",
-    timeLeft: "8 min",
-    players: [
-      { name: "VictoryHunter", winRate: "70%" },
-      { name: "GhostSniper", winRate: "63%" }
-    ]
-  },
-  {
-    id: 4,
-    mode: "Team Deathmatch",
-    map: "Shipment",
-    betAmount: "₦1,000",
-    teamSize: "5v5",
-    timeLeft: "3 min",
-    players: [
-      { name: "EliteWarrior", winRate: "69%" },
-      { name: "TacticalOps", winRate: "73%" }
-    ]
-  },
-  {
-    id: 5,
-    mode: "Gunfight",
-    map: "Pine",
-    betAmount: "₦10,000",
-    teamSize: "2v2",
-    timeLeft: "15 min",
-    players: [
-      { name: "StealthKiller", winRate: "88%" },
-      { name: "NinjaWarrior", winRate: "85%" }
-    ]
-  },
-  {
-    id: 6,
-    mode: "Domination",
-    map: "Firing Range",
-    betAmount: "₦2,000",
-    teamSize: "5v5",
-    timeLeft: "10 min",
-    players: [
-      { name: "WarMachine", winRate: "75%" },
-      { name: "SniperElite", winRate: "71%" }
-    ]
-  }
-];
-
-const MatchmakingPage = () => {
+const Matchmaking = () => {
   const { toast } = useToast();
-  const [activeMode, setActiveMode] = useState('snd');
-  const [activeTab, setActiveTab] = useState('find');
-  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeMode, setActiveMode] = useState("snd");
+  const [selectedMap, setSelectedMap] = useState("");
+  const [selectedTeamSize, setSelectedTeamSize] = useState("1v1");
+  const [selectedBetAmount, setSelectedBetAmount] = useState(1000);
+  const [customBetAmount, setCustomBetAmount] = useState("");
+  const [isCreatingMatch, setIsCreatingMatch] = useState(false);
+  const [isSearchingMatch, setIsSearchingMatch] = useState(false);
   
-  // Create match form state
-  const [selectedMap, setSelectedMap] = useState(modeToMaps[activeMode][0]);
-  const [selectedTeamSize, setSelectedTeamSize] = useState(teamSizeOptions[0].value);
-  const [selectedBetAmount, setSelectedBetAmount] = useState(betAmountPresets[0].value);
-  const [customBetAmount, setCustomBetAmount] = useState(1000);
-
-  const handleFindMatch = () => {
-    toast({
-      title: "Finding Match",
-      description: "Searching for opponents...",
-    });
-  };
+  const activeGameMode = gameModes.find(mode => mode.id === activeMode);
+  const availableTeamSizes = teamSizes.filter(size => size.modes.includes(activeMode));
 
   const handleCreateMatch = () => {
-    toast({
-      title: "Match Created",
-      description: `Your ${gameModes.find(m => m.id === activeMode)?.title} match on ${selectedMap} has been created.`,
-    });
+    setIsCreatingMatch(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setIsCreatingMatch(false);
+      toast({
+        title: "Match Created!",
+        description: `Your ${activeGameMode?.name} match on ${selectedMap} has been created.`,
+        variant: "default",
+      });
+    }, 1500);
   };
+  
+  const handleFindMatch = () => {
+    setIsSearchingMatch(true);
+    
+    // Simulate searching
+    setTimeout(() => {
+      setIsSearchingMatch(false);
+      toast({
+        title: "Match Found!",
+        description: "We've found a match for you. Get ready to play!",
+        variant: "default",
+      });
+    }, 2500);
+  };
+  
+  const filteredMatches = [
+    {
+      id: "match-1",
+      mode: "Search & Destroy",
+      map: "Standoff",
+      teamSize: "5v5",
+      betAmount: "₦5,000",
+      host: "xSniperKing",
+      timeLeft: "10:45",
+      players: {
+        required: 10,
+        joined: 7
+      }
+    },
+    {
+      id: "match-2",
+      mode: "Hardpoint",
+      map: "Nuketown",
+      teamSize: "3v3",
+      betAmount: "₦3,000",
+      host: "FragMaster",
+      timeLeft: "5:30",
+      players: {
+        required: 6,
+        joined: 4
+      }
+    },
+    {
+      id: "match-3",
+      mode: "Battle Royale",
+      map: "Isolated",
+      teamSize: "Squads",
+      betAmount: "₦10,000",
+      host: "VictoryHunter",
+      timeLeft: "15:20",
+      players: {
+        required: 8,
+        joined: 5
+      }
+    }
+  ].filter(match => {
+    if (!searchTerm) return true;
+    return (
+      match.mode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.map.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.host.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <Layout>
-      <div className="py-6">
-        <div className="container max-w-6xl">
-          <h1 className="text-2xl font-bold mb-6">Matchmaking</h1>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-8">
-            {gameModes.map((mode) => (
-              <MatchTypeCard
-                key={mode.id}
-                title={mode.title}
-                icon={mode.icon}
-                isActive={activeMode === mode.id}
-                onClick={() => {
-                  setActiveMode(mode.id);
-                  setSelectedMap(modeToMaps[mode.id][0]);
-                }}
-              />
-            ))}
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Matchmaking</h1>
+            <p className="text-gray-400">Find or create matches and start betting</p>
           </div>
-
-          <div className="glass-card rounded-xl p-6 mb-8">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <div className="flex justify-between items-center mb-6">
-                <TabsList>
-                  <TabsTrigger value="find" className="flex items-center">
-                    <Search size={16} className="mr-2" />
-                    Find Match
-                  </TabsTrigger>
-                  <TabsTrigger value="create" className="flex items-center">
-                    <PlusCircle size={16} className="mr-2" />
-                    Create Match
-                  </TabsTrigger>
-                </TabsList>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center"
+          
+          <div className="flex gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Input
+                placeholder="Search matches..."
+                className="pl-9 bg-tacktix-dark-light"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button 
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                  onClick={() => setSearchTerm("")}
                 >
-                  <Filter size={16} className="mr-2" />
-                  Filters
-                </Button>
+                  <FilterX size={16} />
+                </button>
+              )}
+            </div>
+            <Button variant="gradient" onClick={() => document.getElementById('create-tab')?.click()}>
+              <PlusCircle size={16} className="mr-2" />
+              Create
+            </Button>
+          </div>
+        </div>
+        
+        <Tabs defaultValue="browse" className="w-full">
+          <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
+            <TabsTrigger value="browse">Browse Matches</TabsTrigger>
+            <TabsTrigger value="find" id="find-tab">Find Match</TabsTrigger>
+            <TabsTrigger value="create" id="create-tab">Create Match</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="browse">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                {filteredMatches.length > 0 ? (
+                  filteredMatches.map(match => (
+                    <Card key={match.id} className="glass-card overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+                      <div className="flex flex-col md:flex-row">
+                        <div className="md:w-1/4 p-5 border-b md:border-b-0 md:border-r border-white/5 flex flex-col justify-center">
+                          <div className="flex items-center">
+                            <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
+                              {match.mode}
+                            </Badge>
+                          </div>
+                          <h3 className="text-white font-medium mt-2">{match.map}</h3>
+                          <div className="flex items-center text-gray-400 text-sm mt-1">
+                            <Users size={14} className="mr-1 text-tacktix-blue" />
+                            <span>{match.teamSize}</span>
+                          </div>
+                          <div className="text-tacktix-blue font-bold mt-2">{match.betAmount}</div>
+                        </div>
+                        
+                        <div className="md:w-2/4 p-5 border-b md:border-b-0 md:border-r border-white/5">
+                          <div className="flex flex-col h-full justify-between">
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="h-8 w-8 bg-tacktix-dark-light rounded-full flex items-center justify-center text-sm font-medium mr-2">
+                                    {match.host.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-white">{match.host}</div>
+                                    <div className="text-xs text-gray-400">Host</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center text-gray-400 text-sm">
+                                  <Timer size={14} className="mr-1" />
+                                  <span>Starts in {match.timeLeft}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4">
+                              <div className="w-full bg-tacktix-dark h-2 rounded-full overflow-hidden">
+                                <div 
+                                  className="bg-gradient-to-r from-tacktix-blue to-tacktix-blue-light h-2 rounded-full"
+                                  style={{ width: `${(match.players.joined / match.players.required) * 100}%` }}
+                                ></div>
+                              </div>
+                              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>{match.players.joined} joined</span>
+                                <span>{match.players.required - match.players.joined} slots left</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="md:w-1/4 p-5 flex flex-col justify-center items-center">
+                          <Button variant="gradient" className="w-full mb-2">
+                            Join Match
+                          </Button>
+                          <Button variant="outline" className="w-full text-xs">
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <Card className="glass-card p-8 text-center">
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <AlertCircle size={48} className="text-gray-500 mb-4" />
+                      <h3 className="text-xl font-medium text-white mb-2">No Matches Found</h3>
+                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                        We couldn't find any matches matching your search criteria. Try adjusting your filters or create your own match.
+                      </p>
+                      <Button variant="gradient" onClick={() => document.getElementById('create-tab')?.click()}>
+                        Create a Match
+                        <PlusCircle size={16} className="ml-2" />
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="find">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1">
+                <Card className="glass-card sticky top-24">
+                  <CardHeader>
+                    <CardTitle>Match Preferences</CardTitle>
+                    <CardDescription>Set your game preferences for matchmaking</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Game Mode</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {gameModes.slice(0, 6).map(mode => (
+                          <MatchTypeCard
+                            key={mode.id}
+                            title={mode.name}
+                            icon={mode.icon}
+                            isActive={activeMode === mode.id}
+                            onClick={() => {
+                              setActiveMode(mode.id);
+                              setSelectedMap("");
+                              
+                              // Check if current team size is valid for new mode
+                              const teamSize = teamSizes.find(size => size.id === selectedTeamSize);
+                              if (!teamSize?.modes.includes(mode.id)) {
+                                setSelectedTeamSize(availableTeamSizes[0]?.id || "1v1");
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Map</label>
+                      <Select value={selectedMap} onValueChange={setSelectedMap}>
+                        <SelectTrigger className="bg-tacktix-dark-light text-white">
+                          <SelectValue placeholder="Select a map" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeGameMode?.maps.map(map => (
+                            <SelectItem key={map} value={map}>{map}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Team Size</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {availableTeamSizes.map(size => (
+                          <Button
+                            key={size.id}
+                            type="button"
+                            variant={selectedTeamSize === size.id ? "gradient" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedTeamSize(size.id)}
+                            className="bg-tacktix-dark-light border-white/10"
+                          >
+                            {size.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Bet Amount (₦)</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {betAmounts.map(amount => (
+                          <Button
+                            key={amount}
+                            type="button"
+                            variant={selectedBetAmount === amount && !customBetAmount ? "gradient" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setSelectedBetAmount(amount);
+                              setCustomBetAmount("");
+                            }}
+                            className="bg-tacktix-dark-light border-white/10"
+                          >
+                            ₦{amount.toLocaleString()}
+                          </Button>
+                        ))}
+                        
+                        <div className="col-span-3">
+                          <Input
+                            type="number"
+                            placeholder="Custom amount (min ₦1,000)"
+                            className="bg-tacktix-dark-light text-white"
+                            value={customBetAmount}
+                            onChange={(e) => {
+                              setCustomBetAmount(e.target.value);
+                              if (parseInt(e.target.value) >= 1000) {
+                                setSelectedBetAmount(parseInt(e.target.value));
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                      variant="gradient" 
+                      className="w-full" 
+                      onClick={handleFindMatch}
+                      disabled={isSearchingMatch || !selectedMap || selectedBetAmount < 1000}
+                    >
+                      {isSearchingMatch ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                          Finding Match...
+                        </>
+                      ) : (
+                        <>
+                          Find Match
+                          <Search size={16} className="ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
               </div>
               
-              {showFilters && (
-                <div className="mb-6 p-4 bg-tacktix-dark-light rounded-lg">
-                  <h3 className="font-medium mb-4">Filter Matches</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">Bet Amount</label>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span>₦1,000</span>
-                          <span>₦10,000</span>
+              <div className="md:col-span-2">
+                <Card className="glass-card h-full">
+                  <CardHeader>
+                    <CardTitle>Available Players</CardTitle>
+                    <CardDescription>Players currently looking for matches</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Array.from({ length: 6 }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 rounded-lg bg-tacktix-dark-light/50 border border-white/5"
+                        >
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 bg-tacktix-dark rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                              {["X", "S", "F", "G", "V", "T"][idx]}
+                            </div>
+                            <div>
+                              <div className="font-medium text-white">
+                                {["xSniperKing", "ShadowNinja", "FragMaster", "GhostSniper", "VictoryHunter", "TacticalOps"][idx]}
+                              </div>
+                              <div className="text-xs text-tacktix-blue">
+                                {["78%", "69%", "72%", "63%", "70%", "61%"][idx]} Win Rate
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <Button variant="outline" size="sm" className="text-xs">
+                              Challenge
+                            </Button>
+                          </div>
                         </div>
-                        <Slider
-                          defaultValue={[1000]}
-                          max={10000}
-                          min={1000}
-                          step={1000}
-                        />
-                      </div>
+                      ))}
                     </div>
                     
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">Team Size</label>
-                      <div className="grid grid-cols-5 gap-2">
-                        {teamSizeOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            className={`py-1 px-2 rounded-md text-sm transition-colors ${
-                              selectedTeamSize === option.value
-                                ? "bg-tacktix-blue text-white"
-                                : "bg-tacktix-dark text-gray-300 hover:bg-tacktix-dark-light"
-                            }`}
-                            onClick={() => setSelectedTeamSize(option.value)}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="text-center mt-6">
+                      <Button variant="ghost" className="text-gray-400 text-sm">
+                        Load More Players
+                      </Button>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">Map</label>
-                      <select
-                        className="w-full bg-tacktix-dark border border-tacktix-dark-light rounded-md px-3 py-2 text-sm text-white"
-                        value={selectedMap}
-                        onChange={(e) => setSelectedMap(e.target.value)}
-                      >
-                        {modeToMaps[activeMode].map((map) => (
-                          <option key={map} value={map}>
-                            {map}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end mt-4">
-                    <Button variant="outline" size="sm" className="mr-2">
-                      Reset
-                    </Button>
-                    <Button variant="default" size="sm">
-                      Apply Filters
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              <TabsContent value="find">
-                <div className="space-y-6">
-                  <h3 className="text-lg font-medium">Available Matches</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {availableMatches
-                      .filter(match => (activeMode === "snd" && match.mode === "Search & Destroy") ||
-                                      (activeMode === "hp" && match.mode === "Hardpoint") ||
-                                      (activeMode === "dom" && match.mode === "Domination") ||
-                                      (activeMode === "tdm" && match.mode === "Team Deathmatch") ||
-                                      (activeMode === "gf" && match.mode === "Gunfight") ||
-                                      (activeMode === "br" && match.mode === "Battle Royale"))
-                      .map((match) => (
-                        <GameCard
-                          key={match.id}
-                          mode={match.mode}
-                          map={match.map}
-                          betAmount={match.betAmount}
-                          teamSize={match.teamSize}
-                          timeLeft={match.timeLeft}
-                          players={match.players}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="create">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle>Create a Match</CardTitle>
+                  <CardDescription>Set up a custom game and wait for players to join</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Game Mode</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {gameModes.slice(0, 6).map(mode => (
+                        <MatchTypeCard
+                          key={mode.id}
+                          title={mode.name}
+                          icon={mode.icon}
+                          isActive={activeMode === mode.id}
+                          onClick={() => {
+                            setActiveMode(mode.id);
+                            setSelectedMap("");
+                            
+                            // Check if current team size is valid for new mode
+                            const teamSize = teamSizes.find(size => size.id === selectedTeamSize);
+                            if (!teamSize?.modes.includes(mode.id)) {
+                              setSelectedTeamSize(availableTeamSizes[0]?.id || "1v1");
+                            }
+                          }}
                         />
                       ))}
-                  </div>
-                  
-                  {availableMatches.filter(match => 
-                    (activeMode === "snd" && match.mode === "Search & Destroy") ||
-                    (activeMode === "hp" && match.mode === "Hardpoint") ||
-                    (activeMode === "dom" && match.mode === "Domination") ||
-                    (activeMode === "tdm" && match.mode === "Team Deathmatch") ||
-                    (activeMode === "gf" && match.mode === "Gunfight") ||
-                    (activeMode === "br" && match.mode === "Battle Royale")
-                  ).length === 0 && (
-                    <div className="text-center py-10">
-                      <p className="text-gray-400 mb-4">
-                        No available matches for this game mode. Create your own match!
-                      </p>
-                      <Button 
-                        variant="gradient" 
-                        onClick={() => setActiveTab('create')}
-                      >
-                        <PlusCircle size={16} className="mr-2" />
-                        Create a Match
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="mt-8">
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <Separator className="w-full border-white/10" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-tacktix-dark-deeper px-2 text-gray-400">Or</span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 text-center">
-                      <p className="text-gray-400 mb-4">
-                        Don't see a match you like? Find an opponent instantly!
-                      </p>
-                      <Button 
-                        variant="gradient" 
-                        size="lg" 
-                        className="px-8"
-                        onClick={handleFindMatch}
-                      >
-                        <Search size={18} className="mr-2" />
-                        Quick Match
-                      </Button>
                     </div>
                   </div>
-                </div>
-              </TabsContent>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Map</label>
+                    <Select value={selectedMap} onValueChange={setSelectedMap}>
+                      <SelectTrigger className="bg-tacktix-dark-light text-white">
+                        <SelectValue placeholder="Select a map" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeGameMode?.maps.map(map => (
+                          <SelectItem key={map} value={map}>{map}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Team Size</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {availableTeamSizes.map(size => (
+                        <Button
+                          key={size.id}
+                          type="button"
+                          variant={selectedTeamSize === size.id ? "gradient" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedTeamSize(size.id)}
+                          className="bg-tacktix-dark-light border-white/10"
+                        >
+                          {size.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Bet Amount (₦)</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {betAmounts.map(amount => (
+                        <Button
+                          key={amount}
+                          type="button"
+                          variant={selectedBetAmount === amount && !customBetAmount ? "gradient" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBetAmount(amount);
+                            setCustomBetAmount("");
+                          }}
+                          className="bg-tacktix-dark-light border-white/10"
+                        >
+                          ₦{amount.toLocaleString()}
+                        </Button>
+                      ))}
+                      
+                      <div className="col-span-3">
+                        <Input
+                          type="number"
+                          placeholder="Custom amount (min ₦1,000)"
+                          className="bg-tacktix-dark-light text-white"
+                          value={customBetAmount}
+                          onChange={(e) => {
+                            setCustomBetAmount(e.target.value);
+                            if (parseInt(e.target.value) >= 1000) {
+                              setSelectedBetAmount(parseInt(e.target.value));
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    variant="gradient" 
+                    className="w-full" 
+                    onClick={handleCreateMatch}
+                    disabled={isCreatingMatch || !selectedMap || selectedBetAmount < 1000}
+                  >
+                    {isCreatingMatch ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        Creating Match...
+                      </>
+                    ) : (
+                      <>
+                        Create Match
+                        <ArrowRight size={16} className="ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
               
-              <TabsContent value="create">
-                <div className="space-y-8">
-                  <h3 className="text-lg font-medium">Create a New Match</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-3 flex items-center">
-                          <Target size={16} className="mr-2 text-tacktix-blue" />
-                          Game Mode
-                        </label>
-                        <div className="bg-tacktix-dark-light p-4 rounded-lg">
-                          <h4 className="font-medium mb-2">
-                            {gameModes.find(m => m.id === activeMode)?.title}
-                          </h4>
-                          <p className="text-sm text-gray-400">
-                            {activeMode === 'snd' && "Plant or defuse the bomb. No respawns."}
-                            {activeMode === 'hp' && "Capture and hold the hardpoint to earn points."}
-                            {activeMode === 'dom' && "Capture and hold three flags on the map."}
-                            {activeMode === 'tdm' && "Eliminate enemy players to reach the score limit."}
-                            {activeMode === 'gf' && "Small team tactical combat with limited lives."}
-                            {activeMode === 'br' && "Be the last player or team standing."}
-                          </p>
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle>Match Preview</CardTitle>
+                  <CardDescription>How your match will appear to other players</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-lg overflow-hidden border border-white/10">
+                    <div className="bg-gradient-to-r from-tacktix-dark-deeper to-tacktix-dark p-4 border-b border-white/10">
+                      <div className="flex justify-between items-center">
+                        <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
+                          {activeGameMode?.name || "Select a mode"}
+                        </Badge>
+                        <div className="text-tacktix-blue font-bold">
+                          {selectedBetAmount ? `₦${selectedBetAmount.toLocaleString()}` : "₦0"}
                         </div>
                       </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-3 flex items-center">
-                          <MapIcon size={16} className="mr-2 text-tacktix-blue" />
-                          Map
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {modeToMaps[activeMode].map((map) => (
-                            <button
-                              key={map}
-                              className={`py-2 px-3 rounded-md text-sm transition-colors ${
-                                selectedMap === map
-                                  ? "bg-tacktix-blue text-white"
-                                  : "bg-tacktix-dark-light text-gray-300 hover:bg-tacktix-dark"
-                              }`}
-                              onClick={() => setSelectedMap(map)}
-                            >
-                              {map}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-3 flex items-center">
-                          <UsersIcon size={16} className="mr-2 text-tacktix-blue" />
-                          Team Size
-                        </label>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                          {teamSizeOptions
-                            .filter(option => 
-                              // Only show Squads for Battle Royale
-                              (activeMode === 'br' && option.value === 'squads') ||
-                              // Don't show Squads for non-BR modes
-                              (activeMode !== 'br' && option.value !== 'squads')
-                            )
-                            .map((option) => (
-                              <button
-                                key={option.value}
-                                className={`py-2 px-3 rounded-md text-sm transition-colors ${
-                                  selectedTeamSize === option.value
-                                    ? "bg-tacktix-blue text-white"
-                                    : "bg-tacktix-dark-light text-gray-300 hover:bg-tacktix-dark"
-                                }`}
-                                onClick={() => setSelectedTeamSize(option.value)}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                        </div>
+                      <h3 className="font-medium text-white mt-2">{selectedMap || "Select a map"}</h3>
+                      <div className="flex items-center text-gray-400 text-sm mt-1">
+                        <Users size={14} className="mr-1" />
+                        <span>{selectedTeamSize || "Select team size"}</span>
                       </div>
                     </div>
                     
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-3 flex items-center">
-                          <DollarSign size={16} className="mr-2 text-tacktix-blue" />
-                          Bet Amount
-                        </label>
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                          {betAmountPresets.map((preset) => (
-                            <button
-                              key={preset.value}
-                              className={`py-2 px-3 rounded-md text-sm transition-colors ${
-                                selectedBetAmount === preset.value && !customBetAmount
-                                  ? "bg-tacktix-blue text-white"
-                                  : "bg-tacktix-dark-light text-gray-300 hover:bg-tacktix-dark"
-                              }`}
-                              onClick={() => {
-                                setSelectedBetAmount(preset.value);
-                                setCustomBetAmount(0);
-                              }}
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
+                    <div className="p-4">
+                      <div className="flex items-center mb-4">
+                        <div className="h-10 w-10 bg-tacktix-dark-light rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                          X
+                        </div>
+                        <div>
+                          <div className="font-medium text-white">xSniperKing</div>
+                          <div className="text-xs text-gray-400">Host</div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-sm text-gray-400 mb-2">Match Rules</div>
+                          <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">
+                            <p>• Standard {activeGameMode?.name || "game"} rules apply</p>
+                            <p>• First to win according to game rules</p>
+                            <p>• Screenshots required for verification</p>
+                            <p>• Voice chat optional but recommended</p>
+                          </div>
                         </div>
                         
                         <div>
-                          <label className="block text-xs text-gray-400 mb-2">
-                            Or Enter Custom Amount (Minimum ₦1,000)
-                          </label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <span className="text-gray-400">₦</span>
-                            </div>
-                            <input
-                              type="number"
-                              min="1000"
-                              step="100"
-                              className="w-full pl-8 py-2 px-3 bg-tacktix-dark-light text-white border border-tacktix-dark-light rounded-md focus:border-tacktix-blue focus:outline-none"
-                              value={customBetAmount || ""}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value);
-                                setCustomBetAmount(value);
-                                setSelectedBetAmount(0);
-                              }}
-                              placeholder="Custom amount"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-3 flex items-center">
-                          <Clock size={16} className="mr-2 text-tacktix-blue" />
-                          Match Rules
-                        </label>
-                        <div className="bg-tacktix-dark-light p-4 rounded-lg">
-                          <div className="space-y-2 text-sm">
-                            <p className="flex justify-between">
-                              <span className="text-gray-300">Time Limit:</span>
-                              <span className="text-white">
-                                {activeMode === 'br' ? '30 minutes' : '10 minutes'}
-                              </span>
-                            </p>
-                            <p className="flex justify-between">
-                              <span className="text-gray-300">Score Limit:</span>
-                              <span className="text-white">
-                                {activeMode === 'snd' ? '6 rounds' : 
-                                 activeMode === 'hp' ? '250 points' :
-                                 activeMode === 'dom' ? '200 points' :
-                                 activeMode === 'tdm' ? '75 kills' :
-                                 activeMode === 'gf' ? '6 rounds' :
-                                 'Last team standing'}
-                              </span>
-                            </p>
-                            <p className="flex justify-between">
-                              <span className="text-gray-300">Weapon Restrictions:</span>
-                              <span className="text-white">None</span>
-                            </p>
-                            <p className="flex justify-between">
-                              <span className="text-gray-300">Required Evidence:</span>
-                              <span className="text-white">End-of-match screenshots</span>
-                            </p>
+                          <div className="text-sm text-gray-400 mb-2">Required Players</div>
+                          <div className="grid grid-cols-5 gap-2">
+                            {Array.from({ length: parseInt(selectedTeamSize?.charAt(0) || "1") * 2 }).map((_, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`h-10 w-full rounded-md flex items-center justify-center ${
+                                  idx === 0 
+                                    ? "bg-tacktix-blue text-white" 
+                                    : "bg-tacktix-dark-light/30 text-gray-500"
+                                }`}
+                              >
+                                {idx === 0 ? "You" : "?"}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="pt-6 border-t border-white/10 flex justify-between items-center">
-                    <div>
-                      <h4 className="font-medium">Match Summary</h4>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {gameModes.find(m => m.id === activeMode)?.title} on {selectedMap}, {selectedTeamSize} 
-                        with ₦{customBetAmount || selectedBetAmount} bet
-                      </p>
+                  <div className="mt-6 p-4 bg-tacktix-blue/10 border border-tacktix-blue/20 rounded-md">
+                    <div className="flex items-start">
+                      <AlertCircle size={18} className="text-tacktix-blue mr-2 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-300">
+                          Once created, this match will be visible to all players. Funds will be locked in escrow when the match is filled and both teams confirm participation.
+                        </p>
+                      </div>
                     </div>
-                    
-                    <Button 
-                      variant="gradient" 
-                      size="lg"
-                      onClick={handleCreateMatch}
-                    >
-                      <PlusCircle size={18} className="mr-2" />
-                      Create Match
-                    </Button>
                   </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
 };
 
-export default MatchmakingPage;
+export default Matchmaking;
