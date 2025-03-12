@@ -17,6 +17,7 @@ import MatchDetails from "./pages/MatchDetails";
 import DuelChallenge from "./pages/DuelChallenge";
 import VipDashboard from "./pages/VipDashboard";
 import ModeratorPanel from "./pages/ModeratorPanel";
+import ForgotPassword from "./pages/ForgotPassword";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/sign-in" element={<SignIn />} />
           <Route path="/sign-up" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/profile-setup" element={<ProfileSetup />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/history" element={<History />} />

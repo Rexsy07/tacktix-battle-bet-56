@@ -1,13 +1,36 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, Wallet, Trophy, Home, History, Search, LogIn, Shield, Flame } from "lucide-react";
+import { Menu, X, User, Wallet, Trophy, Home, History, Search, LogIn, LogOut, Shield, Flame } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Check authentication status on mount and when auth state changes
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+    };
+    
+    checkAuth();
+    
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,15 +45,36 @@ const Navbar = () => {
     setIsMobileMenuOpen(false);
   }, [location]);
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast({
+        title: "Logged out",
+        description: "You've been successfully logged out",
+      });
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred during logout",
+        variant: "destructive",
+      });
+    }
+  };
+
   const navLinks = [
-    { name: "Home", path: "/", icon: <Home className="w-4 h-4 mr-2" /> },
-    { name: "Matchmaking", path: "/matchmaking", icon: <Search className="w-4 h-4 mr-2" /> },
-    { name: "Wallet", path: "/wallet", icon: <Wallet className="w-4 h-4 mr-2" /> },
-    { name: "History", path: "/history", icon: <History className="w-4 h-4 mr-2" /> },
-    { name: "Leaderboards", path: "/leaderboards", icon: <Trophy className="w-4 h-4 mr-2" /> },
-    { name: "VIP", path: "/vip-dashboard", icon: <Flame className="w-4 h-4 mr-2" /> },
-    { name: "Moderator", path: "/moderator-panel", icon: <Shield className="w-4 h-4 mr-2" /> },
+    { name: "Home", path: "/", icon: <Home className="w-4 h-4 mr-2" />, showAlways: true },
+    { name: "Matchmaking", path: "/matchmaking", icon: <Search className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "Wallet", path: "/wallet", icon: <Wallet className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "History", path: "/history", icon: <History className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "Leaderboards", path: "/leaderboards", icon: <Trophy className="w-4 h-4 mr-2" />, showAlways: true },
+    { name: "VIP", path: "/vip-dashboard", icon: <Flame className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "Moderator", path: "/moderator-panel", icon: <Shield className="w-4 h-4 mr-2" />, showAlways: false },
   ];
+
+  const filteredNavLinks = navLinks.filter(link => link.showAlways || isAuthenticated);
 
   return (
     <nav
@@ -54,7 +98,7 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) => (
+            {filteredNavLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
@@ -72,15 +116,26 @@ const Navbar = () => {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-3">
-            <Button variant="ghost" size="sm" className="text-sm">
-              <Link to="/sign-in" className="flex items-center">
-                <LogIn className="w-4 h-4 mr-2" />
-                Sign In
-              </Link>
-            </Button>
-            <Button variant="gradient" size="sm" animation="pulseglow" className="text-sm">
-              <Link to="/sign-up">Get Started</Link>
-            </Button>
+            {isAuthenticated ? (
+              <Button variant="ghost" size="sm" className="text-sm" onClick={handleLogout}>
+                <div className="flex items-center">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </div>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" className="text-sm">
+                  <Link to="/sign-in" className="flex items-center">
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign In
+                  </Link>
+                </Button>
+                <Button variant="gradient" size="sm" animation="pulseglow" className="text-sm">
+                  <Link to="/sign-up">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -97,7 +152,7 @@ const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden glass animate-fade-in p-4 mt-1">
           <div className="flex flex-col space-y-3 pt-2 pb-4">
-            {navLinks.map((link) => (
+            {filteredNavLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
@@ -111,17 +166,26 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            <div className="pt-2 grid grid-cols-2 gap-3">
-              <Button variant="ghost" className="w-full text-sm">
-                <Link to="/sign-in" className="flex items-center w-full justify-center">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Link>
+            {isAuthenticated ? (
+              <Button variant="ghost" className="w-full text-sm justify-start" onClick={handleLogout}>
+                <div className="flex items-center">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </div>
               </Button>
-              <Button variant="gradient" animation="pulseglow" className="w-full text-sm">
-                <Link to="/sign-up" className="w-full">Get Started</Link>
-              </Button>
-            </div>
+            ) : (
+              <div className="pt-2 grid grid-cols-2 gap-3">
+                <Button variant="ghost" className="w-full text-sm">
+                  <Link to="/sign-in" className="flex items-center w-full justify-center">
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign In
+                  </Link>
+                </Button>
+                <Button variant="gradient" animation="pulseglow" className="w-full text-sm">
+                  <Link to="/sign-up" className="w-full">Get Started</Link>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -7,8 +7,30 @@ import LiveMatches from "@/components/home/LiveMatches";
 import Leaderboard from "@/components/home/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+    };
+    
+    checkAuth();
+    
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <Layout fullWidth>
       <HeroSection />
@@ -32,10 +54,12 @@ const Index = () => {
             <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
               Join thousands of Call of Duty Mobile players competing and earning real money on TacktixEdge.
             </p>
-            <Button variant="gradient" animation="pulseglow" size="lg" className="font-semibold">
-              Get Started Now
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+            <Link to={isAuthenticated ? "/matchmaking" : "/sign-up"}>
+              <Button variant="gradient" animation="pulseglow" size="lg" className="font-semibold">
+                {isAuthenticated ? "Find Matches" : "Get Started Now"}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
