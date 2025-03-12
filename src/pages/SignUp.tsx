@@ -1,15 +1,17 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Lock, User, ArrowRight, Phone } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const SignUp = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -28,7 +30,7 @@ const SignUp = () => {
     }));
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
@@ -53,16 +55,40 @@ const SignUp = () => {
       return;
     }
 
-    // Simulate signup
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            username: formData.username,
+            phone: formData.phone
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
       toast({
         title: "Success!",
-        description: "Your account has been created.",
+        description: "Your account has been created. Please check your email for verification.",
         variant: "default",
       });
-      // Would redirect to profile setup page in real app
-    }, 1000);
+      
+      // Redirect to profile setup
+      navigate("/profile-setup");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
