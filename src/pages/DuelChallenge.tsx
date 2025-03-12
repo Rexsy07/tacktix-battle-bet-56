@@ -385,7 +385,15 @@ const DuelChallenge = () => {
                     variant="ghost"
                     onClick={() => {
                       setChallengeCode("");
-                      document.querySelector('[data-value="setup"]')?.click();
+                      // Fix: Use querySelector to get the element and then dispatch a click event instead of using .click()
+                      const setupTab = document.querySelector('[data-value="setup"]');
+                      if (setupTab) {
+                        setupTab.dispatchEvent(new MouseEvent('click', {
+                          bubbles: true,
+                          cancelable: true,
+                          view: window
+                        }));
+                      }
                     }}
                   >
                     Create Another Challenge

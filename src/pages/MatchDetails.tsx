@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -154,7 +153,8 @@ const MatchDetails = () => {
                         <Badge variant="outline" className="mr-2 bg-tacktix-dark-light">ALPHA</Badge>
                         Team {matchData.host.name}
                       </h3>
-                      <Badge variant="badge" size="badge">
+                      {/* Fix: Change size from "badge" to "sm" */}
+                      <Badge variant="badge" size="sm">
                         <Trophy size={12} className="mr-1" />
                         Host
                       </Badge>
