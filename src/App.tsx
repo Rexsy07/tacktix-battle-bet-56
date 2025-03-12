@@ -15,6 +15,8 @@ import Matchmaking from "./pages/Matchmaking";
 import Leaderboards from "./pages/Leaderboards";
 import MatchDetails from "./pages/MatchDetails";
 import DuelChallenge from "./pages/DuelChallenge";
+import VipDashboard from "./pages/VipDashboard";
+import ModeratorPanel from "./pages/ModeratorPanel";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +37,8 @@ const App = () => (
           <Route path="/leaderboards" element={<Leaderboards />} />
           <Route path="/match/:matchId" element={<MatchDetails />} />
           <Route path="/duel-challenge" element={<DuelChallenge />} />
+          <Route path="/vip-dashboard" element={<VipDashboard />} />
+          <Route path="/moderator-panel" element={<ModeratorPanel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

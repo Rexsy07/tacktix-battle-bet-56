@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, Wallet, Trophy, Home, History, Search, LogIn } from "lucide-react";
+import { Menu, X, User, Wallet, Trophy, Home, History, Search, LogIn, Shield, Flame } from "lucide-react";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -28,6 +28,8 @@ const Navbar = () => {
     { name: "Wallet", path: "/wallet", icon: <Wallet className="w-4 h-4 mr-2" /> },
     { name: "History", path: "/history", icon: <History className="w-4 h-4 mr-2" /> },
     { name: "Leaderboards", path: "/leaderboards", icon: <Trophy className="w-4 h-4 mr-2" /> },
+    { name: "VIP", path: "/vip-dashboard", icon: <Flame className="w-4 h-4 mr-2" /> },
+    { name: "Moderator", path: "/moderator-panel", icon: <Shield className="w-4 h-4 mr-2" /> },
   ];
 
   return (
