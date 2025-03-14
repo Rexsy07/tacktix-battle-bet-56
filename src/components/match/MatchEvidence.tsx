@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertCircle, Camera, Upload, Check, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MatchEvidenceProps {
   matchId: string;
@@ -15,10 +16,50 @@ const MatchEvidence = ({ matchId, matchStatus }: MatchEvidenceProps) => {
   const { toast } = useToast();
   const [preMatchStatus, setPreMatchStatus] = useState<"pending" | "uploaded" | "verified">("pending");
   const [postMatchStatus, setPostMatchStatus] = useState<"pending" | "uploaded" | "verified">("pending");
+  const [isUploading, setIsUploading] = useState(false);
   
-  const handleUpload = (type: "pre" | "post") => {
-    // In a real app, this would open a file picker and upload to a server
-    setTimeout(() => {
+  const handleUpload = async (type: "pre" | "post") => {
+    try {
+      setIsUploading(true);
+      
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to upload evidence",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // In a real app, you would open a file picker here
+      // For now, we'll simulate file upload with a timeout
+      
+      toast({
+        title: "Uploading...",
+        description: `Uploading your ${type === "pre" ? "pre-match" : "post-match"} screenshot`,
+      });
+      
+      // Simulate file upload delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Generate a fake URL for the "uploaded" image
+      const evidenceUrl = `https://example.com/evidence/${matchId}_${type}_${Date.now()}.jpg`;
+      
+      // Add evidence to database
+      const { error } = await supabase
+        .from("match_evidence")
+        .insert({
+          match_id: matchId,
+          submitted_by: session.user.id,
+          evidence_url: evidenceUrl,
+          evidence_type: type === "pre" ? "pre_match" : "post_match"
+        });
+        
+      if (error) throw error;
+      
+      // Update local state
       if (type === "pre") {
         setPreMatchStatus("uploaded");
       } else {
@@ -30,7 +71,63 @@ const MatchEvidence = ({ matchId, matchStatus }: MatchEvidenceProps) => {
         description: `Your ${type === "pre" ? "pre-match" : "post-match"} screenshot has been uploaded.`,
         variant: "default",
       });
-    }, 1500);
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload screenshot",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  const handleVerify = async (type: "pre" | "post") => {
+    try {
+      // In a real app, this would be handled by a moderator or automatically
+      // For now, we'll simulate verification
+      
+      toast({
+        title: "Verifying...",
+        description: `Verifying your ${type === "pre" ? "pre-match" : "post-match"} screenshot`,
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (type === "pre") {
+        setPreMatchStatus("verified");
+      } else {
+        setPostMatchStatus("verified");
+      }
+      
+      toast({
+        title: "Screenshot Verified",
+        description: `Your ${type === "pre" ? "pre-match" : "post-match"} screenshot has been verified.`,
+        variant: "default",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message || "Failed to verify screenshot",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleReject = (type: "pre" | "post") => {
+    // In a real app, this would be handled by a moderator
+    if (type === "pre") {
+      setPreMatchStatus("pending");
+    } else {
+      setPostMatchStatus("pending");
+    }
+    
+    toast({
+      title: "Screenshot Rejected",
+      description: `Your ${type === "pre" ? "pre-match" : "post-match"} screenshot was rejected. Please upload a valid screenshot.`,
+      variant: "destructive",
+    });
   };
   
   const renderUploadSection = (
@@ -68,10 +165,19 @@ const MatchEvidence = ({ matchId, matchStatus }: MatchEvidenceProps) => {
                 size="sm" 
                 className="flex items-center" 
                 onClick={() => handleUpload(type)}
-                disabled={isDisabled}
+                disabled={isDisabled || isUploading}
               >
-                <Upload size={14} className="mr-1" />
-                Upload Screenshot
+                {isUploading ? (
+                  <>
+                    <span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={14} className="mr-1" />
+                    Upload Screenshot
+                  </>
+                )}
               </Button>
               {isDisabled && (
                 <p className="text-xs text-gray-500 mt-2">
@@ -99,10 +205,20 @@ const MatchEvidence = ({ matchId, matchStatus }: MatchEvidenceProps) => {
               
               {status === "uploaded" ? (
                 <div className="flex space-x-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-900/20">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-900/20"
+                    onClick={() => handleVerify(type)}
+                  >
                     <Check size={16} />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-900/20">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-900/20"
+                    onClick={() => handleReject(type)}
+                  >
                     <X size={16} />
                   </Button>
                 </div>

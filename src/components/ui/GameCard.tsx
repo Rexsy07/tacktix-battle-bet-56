@@ -1,8 +1,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Clock, Users, Trophy, Map } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface GameCardProps {
+  id?: string;
   mode: string;
   map: string;
   betAmount: string;
@@ -13,6 +15,7 @@ interface GameCardProps {
 }
 
 const GameCard = ({
+  id = "default-match",
   mode,
   map,
   betAmount,
@@ -21,6 +24,20 @@ const GameCard = ({
   isLive = false,
   players,
 }: GameCardProps) => {
+  const navigate = useNavigate();
+  
+  const handleViewDetails = () => {
+    navigate(`/match/${id}`);
+  };
+  
+  const handleJoinOrSpectate = () => {
+    if (isLive) {
+      navigate(`/spectate/${id}`);
+    } else {
+      navigate(`/join-match/${id}`);
+    }
+  };
+  
   return (
     <div className="glass-card rounded-lg overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] group">
       <div className="relative">
@@ -91,12 +108,14 @@ const GameCard = ({
           <Button 
             variant="outline" 
             className="flex-1 text-xs"
+            onClick={handleViewDetails}
           >
             View Details
           </Button>
           <Button 
             variant="gradient" 
             className="flex-1 text-xs"
+            onClick={handleJoinOrSpectate}
           >
             {isLive ? "Spectate" : "Join Match"}
           </Button>

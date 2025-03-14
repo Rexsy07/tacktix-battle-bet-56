@@ -6,14 +6,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThumbsUp, ThumbsDown, MessageCircle, Flag, User, ShieldAlert } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PlayerRatingProps {
   playerName: string;
+  playerId: string;
+  matchId: string;
   playerAvatar?: string;
   onClose?: () => void;
 }
 
-const PlayerRating = ({ playerName, playerAvatar, onClose }: PlayerRatingProps) => {
+const PlayerRating = ({ playerName, playerId, matchId, playerAvatar, onClose }: PlayerRatingProps) => {
   const { toast } = useToast();
   const [rating, setRating] = useState<"positive" | "negative" | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -21,7 +24,7 @@ const PlayerRating = ({ playerName, playerAvatar, onClose }: PlayerRatingProps) 
   const [reportReason, setReportReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!rating) {
       toast({
         title: "Rating Required",
@@ -33,19 +36,51 @@ const PlayerRating = ({ playerName, playerAvatar, onClose }: PlayerRatingProps) 
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "You must be signed in to rate players",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Add rating to database
+      const { error } = await supabase
+        .from("user_ratings")
+        .insert({
+          rater_id: session.user.id,
+          rated_id: playerId,
+          match_id: matchId,
+          rating: rating === "positive" ? 1 : -1,
+          comment: feedback || null
+        });
+        
+      if (error) throw error;
+      
       toast({
         title: "Rating Submitted",
         description: "Thank you for rating your opponent!",
         variant: "default",
       });
+      
       onClose?.();
-    }, 1000);
+    } catch (error: any) {
+      console.error("Error submitting rating:", error);
+      toast({
+        title: "Submission Error",
+        description: error.message || "Failed to submit rating",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleReport = () => {
+  const handleReport = async () => {
     if (!reportReason) {
       toast({
         title: "Report Reason Required",
@@ -57,16 +92,46 @@ const PlayerRating = ({ playerName, playerAvatar, onClose }: PlayerRatingProps) 
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "You must be signed in to report players",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Add dispute to database
+      const { error } = await supabase
+        .from("disputes")
+        .insert({
+          match_id: matchId,
+          reported_by: session.user.id,
+          reason: reportReason
+        });
+        
+      if (error) throw error;
+      
       toast({
         title: "Report Submitted",
         description: "Our moderators will review your report soon",
         variant: "default",
       });
+      
       setIsReporting(false);
-    }, 1000);
+    } catch (error: any) {
+      console.error("Error submitting report:", error);
+      toast({
+        title: "Submission Error",
+        description: error.message || "Failed to submit report",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

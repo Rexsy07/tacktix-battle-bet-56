@@ -21,6 +21,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import HowItWorks from "./pages/HowItWorks";
 import FeatureMatchDetails from "./pages/FeatureMatchDetails";
 import Profile from "./pages/Profile";
+import JoinMatch from "./pages/JoinMatch";
+import Spectate from "./pages/Spectate";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,8 @@ const App = () => (
           <Route path="/matchmaking" element={<Matchmaking />} />
           <Route path="/leaderboards" element={<Leaderboards />} />
           <Route path="/match/:matchId" element={<MatchDetails />} />
+          <Route path="/join-match/:id" element={<JoinMatch />} />
+          <Route path="/spectate/:id" element={<Spectate />} />
           <Route path="/duel-challenge" element={<DuelChallenge />} />
           <Route path="/vip-dashboard" element={<VipDashboard />} />
           <Route path="/moderator-panel" element={<ModeratorPanel />} />
