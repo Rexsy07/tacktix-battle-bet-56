@@ -15,13 +15,18 @@ const FeaturedMatches = () => {
   useEffect(() => {
     const fetchFeaturedMatches = async () => {
       try {
-        // Fetch 4 pending matches
+        // Fetch 4 pending matches with explicitly named foreign key relationships
         const { data, error } = await supabase
           .from("matches")
           .select(`
-            *,
-            host:host_id(username, id),
-            opponent:opponent_id(username, id)
+            id,
+            game_mode,
+            map_name,
+            bet_amount,
+            created_at,
+            status,
+            host:profiles!matches_host_id_fkey(username),
+            opponent:profiles!matches_opponent_id_fkey(username)
           `)
           .eq("status", "pending")
           .order("created_at", { ascending: false })
