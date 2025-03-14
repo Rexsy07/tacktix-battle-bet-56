@@ -20,6 +20,7 @@ import ModeratorPanel from "./pages/ModeratorPanel";
 import ForgotPassword from "./pages/ForgotPassword";
 import HowItWorks from "./pages/HowItWorks";
 import FeatureMatchDetails from "./pages/FeatureMatchDetails";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/sign-up" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/profile-setup" element={<ProfileSetup />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/history" element={<History />} />
           <Route path="/matchmaking" element={<Matchmaking />} />
