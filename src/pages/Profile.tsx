@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   User, Settings, Wallet, History, Trophy, Edit, 
   CheckCircle, AlertCircle, Moon, Sun, LogOut, Copy, 
-  Shield, KeyRound, CreditCard, GameController, MapPin
+  Shield, KeyRound, CreditCard, Gamepad, MapPin
 } from "lucide-react";
 
 // Define theme options type
@@ -101,17 +101,12 @@ const Profile = () => {
         if (matchesError) throw matchesError;
         setRecentMatches(matchesData || []);
         
-        // Fetch user theme preference
-        const { data: userSettings, error: settingsError } = await supabase
-          .from("user_settings")
-          .select("theme")
-          .eq("user_id", user.id)
-          .single();
-          
-        if (!settingsError && userSettings) {
-          setTheme(userSettings.theme as Theme);
+        // Get theme from localStorage instead of database
+        const savedTheme = localStorage.getItem("userTheme") as Theme | null;
+        if (savedTheme) {
+          setTheme(savedTheme);
           // Apply theme to document
-          document.documentElement.classList.toggle("light-mode", userSettings.theme === "light");
+          document.documentElement.classList.toggle("light-mode", savedTheme === "light");
         }
         
       } catch (error) {
@@ -143,16 +138,8 @@ const Profile = () => {
     document.documentElement.classList.toggle("light-mode", newTheme === "light");
     
     try {
-      // Update theme preference in database
-      const { error } = await supabase
-        .from("user_settings")
-        .upsert({ 
-          user_id: user.id, 
-          theme: newTheme,
-          updated_at: new Date().toISOString()
-        });
-        
-      if (error) throw error;
+      // Store theme preference in localStorage instead of database
+      localStorage.setItem("userTheme", newTheme);
       
       toast({
         title: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} mode activated`,
@@ -334,7 +321,7 @@ const Profile = () => {
                     <span className="sm:hidden">Matches</span>
                   </TabsTrigger>
                   <TabsTrigger value="preferences">
-                    <GameController className="h-4 w-4 mr-2 d-none d-sm-block" />
+                    <Gamepad className="h-4 w-4 mr-2 d-none d-sm-block" />
                     <span className="hidden sm:inline">Preferences</span>
                     <span className="sm:hidden">Prefs</span>
                   </TabsTrigger>
