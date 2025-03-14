@@ -18,6 +18,8 @@ import DuelChallenge from "./pages/DuelChallenge";
 import VipDashboard from "./pages/VipDashboard";
 import ModeratorPanel from "./pages/ModeratorPanel";
 import ForgotPassword from "./pages/ForgotPassword";
+import HowItWorks from "./pages/HowItWorks";
+import FeatureMatchDetails from "./pages/FeatureMatchDetails";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ const App = () => (
           <Route path="/duel-challenge" element={<DuelChallenge />} />
           <Route path="/vip-dashboard" element={<VipDashboard />} />
           <Route path="/moderator-panel" element={<ModeratorPanel />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/featured-match/:matchId" element={<FeatureMatchDetails />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

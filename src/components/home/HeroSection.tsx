@@ -1,8 +1,30 @@
 
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, DollarSign, Shield, Zap } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const HeroSection = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+    };
+    
+    checkAuth();
+    
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <div className="relative py-20 lg:py-32 overflow-hidden">
       {/* Background elements */}
@@ -30,13 +52,17 @@ const HeroSection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <Button variant="gradient" animation="pulseglow" size="xl" className="font-semibold">
-              Get Started
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button variant="outline" size="xl" className="font-semibold">
-              How It Works
-            </Button>
+            <Link to={isAuthenticated ? "/matchmaking" : "/sign-up"}>
+              <Button variant="gradient" animation="pulseglow" size="xl" className="font-semibold">
+                {isAuthenticated ? "Find Matches" : "Get Started"}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link to="/how-it-works">
+              <Button variant="outline" size="xl" className="font-semibold">
+                How It Works
+              </Button>
+            </Link>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
