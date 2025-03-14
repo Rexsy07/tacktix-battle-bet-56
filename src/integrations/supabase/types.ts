@@ -368,6 +368,39 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          created_at: string | null
+          default_bet_amount: number | null
+          favorite_map: string | null
+          id: string
+          preferred_game_mode: string | null
+          theme: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          default_bet_amount?: number | null
+          favorite_map?: string | null
+          id?: string
+          preferred_game_mode?: string | null
+          theme?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          default_bet_amount?: number | null
+          favorite_map?: string | null
+          id?: string
+          preferred_game_mode?: string | null
+          theme?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallets: {
         Row: {
           balance: number
