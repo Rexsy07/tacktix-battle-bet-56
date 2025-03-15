@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -36,6 +35,7 @@ const MatchDetails = () => {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (matchId) {
+          // Fix the select query by using specific column hints for foreign key relationships
           const { data, error } = await supabase
             .from("matches")
             .select(`
