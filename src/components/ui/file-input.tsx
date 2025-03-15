@@ -1,17 +1,13 @@
 
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Upload, X, File } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Upload, X } from "lucide-react";
 
 interface FileInputProps {
   file: File | null;
   onFileChange: (file: File | null) => void;
   disabled?: boolean;
   accept?: string;
-  maxSize?: number; // in MB
   className?: string;
 }
 
@@ -20,90 +16,121 @@ export const FileInput = ({
   onFileChange,
   disabled = false,
   accept = "image/*",
-  maxSize = 5, // 5MB default
   className,
 }: FileInputProps) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    const selectedFile = e.target.files?.[0] || null;
-    
-    if (selectedFile) {
-      // Check file size (convert maxSize from MB to bytes)
-      if (selectedFile.size > maxSize * 1024 * 1024) {
-        setError(`File size exceeds ${maxSize}MB limit`);
-        return;
-      }
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled) {
+      setIsDragging(true);
     }
-    
-    onFileChange(selectedFile);
   };
 
-  const handleClearFile = () => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (disabled) return;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onFileChange(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onFileChange(e.target.files[0]);
+    }
+  };
+
+  const handleRemoveFile = () => {
     onFileChange(null);
-    if (inputRef.current) {
-      inputRef.current.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <Label htmlFor="file-upload">Upload File</Label>
-      
+    <div
+      className={`w-full ${className || ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <input
+        type="file"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        accept={accept}
+        disabled={disabled}
+      />
+
       {!file ? (
-        // File selection UI
-        <div className="relative">
-          <Input
-            ref={inputRef}
-            id="file-upload"
-            type="file"
-            accept={accept}
-            onChange={handleFileChange}
-            disabled={disabled}
-            className="absolute inset-0 opacity-0 cursor-pointer z-10 h-full"
-            tabIndex={-1}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full flex items-center justify-center gap-2 h-20"
-            disabled={disabled}
-          >
-            <Upload className="h-5 w-5" />
-            <span>Select File</span>
-          </Button>
+        <div
+          className={`
+            border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+            ${isDragging ? "border-tacktix-blue bg-tacktix-blue/5" : "border-gray-600"} 
+            ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-tacktix-blue hover:bg-tacktix-blue/5"}
+          `}
+          onClick={disabled ? undefined : handleButtonClick}
+        >
+          <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+          <p className="text-white text-sm font-medium">
+            Drag and drop your file here or click to browse
+          </p>
+          <p className="text-gray-400 text-xs mt-1">
+            Maximum file size: 10MB
+          </p>
         </div>
       ) : (
-        // Selected file UI
-        <div className="flex items-center gap-3 p-3 border border-border rounded-md bg-background">
-          <div className="bg-muted rounded-md p-2">
-            <File className="h-6 w-6 text-foreground" />
+        <div className="border rounded-lg p-4 bg-tacktix-dark-light">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-tacktix-dark flex items-center justify-center rounded-md">
+                <Upload className="h-6 w-6 text-tacktix-blue" />
+              </div>
+              <div className="truncate">
+                <p className="text-sm font-medium text-white truncate">
+                  {file.name}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+            </div>
+            {!disabled && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRemoveFile}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{file.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {(file.size / 1024).toFixed(1)} KB
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={handleClearFile}
-            disabled={disabled}
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </div>
       )}
-      
-      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 };
 
-// Add a default export to ensure the module is properly recognized
+// Also add default export to prevent import issues
 export default FileInput;

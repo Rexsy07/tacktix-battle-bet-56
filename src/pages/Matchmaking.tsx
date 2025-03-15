@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import Layout from "@/components/layout/Layout";
 import MatchTypeCard from "@/components/ui/MatchTypeCard";
@@ -15,6 +15,7 @@ import {
   Search, FilterX, Target, Trophy, Shield, Swords, Gamepad2, Users, 
   Timer, Map, Crosshair, AlertCircle, ArrowRight, PlusCircle
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const gameModes = [
   { id: "snd", name: "Search & Destroy", icon: <Shield size={20} />, maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"] },
@@ -37,6 +38,7 @@ const betAmounts = [1000, 2000, 3000, 5000, 10000];
 
 const Matchmaking = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeMode, setActiveMode] = useState("snd");
   const [selectedMap, setSelectedMap] = useState("");
@@ -45,86 +47,269 @@ const Matchmaking = () => {
   const [customBetAmount, setCustomBetAmount] = useState("");
   const [isCreatingMatch, setIsCreatingMatch] = useState(false);
   const [isSearchingMatch, setIsSearchingMatch] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
   
   const activeGameMode = gameModes.find(mode => mode.id === activeMode);
   const availableTeamSizes = teamSizes.filter(size => size.modes.includes(activeMode));
 
-  const handleCreateMatch = () => {
+  useEffect(() => {
+    const fetchMatches = async () => {
+      setLoading(true);
+      try {
+        // Check if user is logged in
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setCurrentUser(session.user);
+          
+          // Fetch user's wallet balance
+          const { data: walletData, error: walletError } = await supabase
+            .from('wallets')
+            .select('balance')
+            .eq('user_id', session.user.id)
+            .single();
+            
+          if (!walletError) {
+            setWalletBalance(walletData.balance);
+          }
+        }
+        
+        // Fetch matches that are still pending (no opponent yet)
+        const { data, error } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            host:host_id(id, username, avatar_url)
+          `)
+          .eq('status', 'pending')
+          .is('opponent_id', null)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        setMatches(data || []);
+      } catch (error) {
+        console.error("Error fetching matches:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load matches. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchMatches();
+    
+    // Set up a polling interval to refresh matches
+    const interval = setInterval(fetchMatches, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [toast]);
+
+  const handleCreateMatch = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to create a match",
+        variant: "destructive",
+      });
+      navigate("/sign-in");
+      return;
+    }
+    
+    if (!selectedMap) {
+      toast({
+        title: "Map Required",
+        description: "Please select a map for the match",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedBetAmount < 1000) {
+      toast({
+        title: "Invalid Bet Amount",
+        description: "Minimum bet amount is ₦1,000",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedBetAmount > walletBalance) {
+      toast({
+        title: "Insufficient Funds",
+        description: "You don't have enough balance for this bet",
+        variant: "destructive",
+      });
+      navigate("/wallet");
+      return;
+    }
+    
     setIsCreatingMatch(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsCreatingMatch(false);
+    try {
+      // Generate a random lobby code
+      const lobbyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Insert new match into the database
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .insert({
+          host_id: currentUser.id,
+          game_mode: activeGameMode.name,
+          map_name: selectedMap,
+          bet_amount: selectedBetAmount,
+          lobby_code: lobbyCode,
+          status: 'pending',
+          is_vip_match: false
+        })
+        .select()
+        .single();
+        
+      if (matchError) throw matchError;
+      
+      // Deduct bet amount from wallet
+      const { error: walletError } = await supabase
+        .from('wallets')
+        .update({ 
+          balance: walletBalance - selectedBetAmount,
+          updated_at: new Date()
+        })
+        .eq('user_id', currentUser.id);
+        
+      if (walletError) throw walletError;
+      
+      // Add transaction record
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          wallet_id: currentUser.id,
+          amount: selectedBetAmount,
+          type: 'bet',
+          status: 'completed',
+          description: `Bet placed on ${activeGameMode.name} match on ${selectedMap}`
+        });
+        
+      if (transactionError) throw transactionError;
+      
       toast({
         title: "Match Created!",
-        description: `Your ${activeGameMode?.name} match on ${selectedMap} has been created.`,
-        variant: "default",
+        description: `Your ${activeGameMode.name} match on ${selectedMap} has been created.`,
       });
-    }, 1500);
+      
+      // Navigate to the match details page
+      navigate(`/match/${matchData.id}`);
+    } catch (error) {
+      console.error("Error creating match:", error);
+      toast({
+        title: "Match Creation Failed",
+        description: error.message || "Failed to create match. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingMatch(false);
+    }
   };
   
-  const handleFindMatch = () => {
+  const handleFindMatch = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to find a match",
+        variant: "destructive",
+      });
+      navigate("/sign-in");
+      return;
+    }
+    
+    if (!selectedMap) {
+      toast({
+        title: "Map Required",
+        description: "Please select a map for the match",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedBetAmount > walletBalance) {
+      toast({
+        title: "Insufficient Funds",
+        description: "You don't have enough balance for this bet",
+        variant: "destructive",
+      });
+      navigate("/wallet");
+      return;
+    }
+    
     setIsSearchingMatch(true);
     
-    // Simulate searching
-    setTimeout(() => {
-      setIsSearchingMatch(false);
+    try {
+      // Find a matching game
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('game_mode', activeGameMode.name)
+        .eq('map_name', selectedMap)
+        .eq('bet_amount', selectedBetAmount)
+        .is('opponent_id', null)
+        .neq('host_id', currentUser.id)
+        .limit(1);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Found a match, navigate to join page
+        navigate(`/join-match/${data[0].id}`);
+      } else {
+        // No match found, create one
+        toast({
+          title: "No Matches Found",
+          description: "We'll create a new match for you instead.",
+        });
+        
+        document.getElementById('create-tab')?.click();
+      }
+    } catch (error) {
+      console.error("Error finding match:", error);
       toast({
-        title: "Match Found!",
-        description: "We've found a match for you. Get ready to play!",
-        variant: "default",
+        title: "Error",
+        description: error.message || "Failed to find a match. Please try again.",
+        variant: "destructive",
       });
-    }, 2500);
+    } finally {
+      setIsSearchingMatch(false);
+    }
   };
   
-  const filteredMatches = [
-    {
-      id: "match-1",
-      mode: "Search & Destroy",
-      map: "Standoff",
-      teamSize: "5v5",
-      betAmount: "₦5,000",
-      host: "xSniperKing",
-      timeLeft: "10:45",
-      players: {
-        required: 10,
-        joined: 7
-      }
-    },
-    {
-      id: "match-2",
-      mode: "Hardpoint",
-      map: "Nuketown",
-      teamSize: "3v3",
-      betAmount: "₦3,000",
-      host: "FragMaster",
-      timeLeft: "5:30",
-      players: {
-        required: 6,
-        joined: 4
-      }
-    },
-    {
-      id: "match-3",
-      mode: "Battle Royale",
-      map: "Isolated",
-      teamSize: "Squads",
-      betAmount: "₦10,000",
-      host: "VictoryHunter",
-      timeLeft: "15:20",
-      players: {
-        required: 8,
-        joined: 5
-      }
-    }
-  ].filter(match => {
+  const filteredMatches = matches.filter(match => {
     if (!searchTerm) return true;
     return (
-      match.mode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      match.map.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      match.host.toLowerCase().includes(searchTerm.toLowerCase())
+      match.game_mode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.map_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.host?.username?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
+
+  // Format match time remaining
+  const formatTimeRemaining = (createdAt) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const timeOpen = now - created;
+    const minutesOpen = Math.floor(timeOpen / (1000 * 60));
+    
+    if (minutesOpen < 60) {
+      return `${minutesOpen}m`;
+    } else {
+      const hoursOpen = Math.floor(minutesOpen / 60);
+      const remainingMinutes = minutesOpen % 60;
+      return `${hoursOpen}h ${remainingMinutes}m`;
+    }
+  };
 
   return (
     <Layout>
@@ -170,22 +355,32 @@ const Matchmaking = () => {
           <TabsContent value="browse">
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
-                {filteredMatches.length > 0 ? (
+                {loading ? (
+                  <Card className="glass-card p-8 text-center">
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tacktix-blue mb-4"></div>
+                      <h3 className="text-xl font-medium text-white mb-2">Loading Matches</h3>
+                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                        Fetching available matches. This won't take long.
+                      </p>
+                    </div>
+                  </Card>
+                ) : filteredMatches.length > 0 ? (
                   filteredMatches.map(match => (
                     <Card key={match.id} className="glass-card overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]">
                       <div className="flex flex-col md:flex-row">
                         <div className="md:w-1/4 p-5 border-b md:border-b-0 md:border-r border-white/5 flex flex-col justify-center">
                           <div className="flex items-center">
                             <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
-                              {match.mode}
+                              {match.game_mode}
                             </Badge>
                           </div>
-                          <h3 className="text-white font-medium mt-2">{match.map}</h3>
+                          <h3 className="text-white font-medium mt-2">{match.map_name}</h3>
                           <div className="flex items-center text-gray-400 text-sm mt-1">
                             <Users size={14} className="mr-1 text-tacktix-blue" />
-                            <span>{match.teamSize}</span>
+                            <span>{match.team_size || "1v1"}</span>
                           </div>
-                          <div className="text-tacktix-blue font-bold mt-2">{match.betAmount}</div>
+                          <div className="text-tacktix-blue font-bold mt-2">₦{match.bet_amount.toLocaleString()}</div>
                         </div>
                         
                         <div className="md:w-2/4 p-5 border-b md:border-b-0 md:border-r border-white/5">
@@ -194,16 +389,16 @@ const Matchmaking = () => {
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center">
                                   <div className="h-8 w-8 bg-tacktix-dark-light rounded-full flex items-center justify-center text-sm font-medium mr-2">
-                                    {match.host.charAt(0)}
+                                    {match.host?.username?.charAt(0) || "?"}
                                   </div>
                                   <div>
-                                    <div className="font-medium text-white">{match.host}</div>
+                                    <div className="font-medium text-white">{match.host?.username || "Unknown"}</div>
                                     <div className="text-xs text-gray-400">Host</div>
                                   </div>
                                 </div>
                                 <div className="flex items-center text-gray-400 text-sm">
                                   <Timer size={14} className="mr-1" />
-                                  <span>Starts in {match.timeLeft}</span>
+                                  <span>Open for {formatTimeRemaining(match.created_at)}</span>
                                 </div>
                               </div>
                             </div>
@@ -212,19 +407,19 @@ const Matchmaking = () => {
                               <div className="w-full bg-tacktix-dark h-2 rounded-full overflow-hidden">
                                 <div 
                                   className="bg-gradient-to-r from-tacktix-blue to-tacktix-blue-light h-2 rounded-full"
-                                  style={{ width: `${(match.players.joined / match.players.required) * 100}%` }}
+                                  style={{ width: `50%` }}
                                 ></div>
                               </div>
                               <div className="flex justify-between text-xs text-gray-400 mt-1">
-                                <span>{match.players.joined} joined</span>
-                                <span>{match.players.required - match.players.joined} slots left</span>
+                                <span>1 joined</span>
+                                <span>1 slot left</span>
                               </div>
                             </div>
                           </div>
                         </div>
                         
                         <div className="md:w-1/4 p-5 flex flex-col justify-center items-center">
-                          <Link to={`/match/${match.id}`} className="w-full mb-2">
+                          <Link to={`/join-match/${match.id}`} className="w-full mb-2">
                             <Button variant="gradient" className="w-full">
                               Join Match
                             </Button>
@@ -357,13 +552,20 @@ const Matchmaking = () => {
                         </div>
                       </div>
                     </div>
+                    
+                    {currentUser && (
+                      <div className="flex items-center justify-between mt-2 text-sm">
+                        <span className="text-gray-400">Wallet Balance:</span>
+                        <span className="text-tacktix-blue font-medium">₦{walletBalance.toLocaleString()}</span>
+                      </div>
+                    )}
                   </CardContent>
                   <CardFooter>
                     <Button 
                       variant="gradient" 
                       className="w-full" 
                       onClick={handleFindMatch}
-                      disabled={isSearchingMatch || !selectedMap || selectedBetAmount < 1000}
+                      disabled={isSearchingMatch || !selectedMap || selectedBetAmount < 1000 || !currentUser}
                     >
                       {isSearchingMatch ? (
                         <>
@@ -389,38 +591,57 @@ const Matchmaking = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Array.from({ length: 6 }).map((_, idx) => (
+                      {matches.slice(0, 6).map((match, idx) => (
                         <div
-                          key={idx}
+                          key={match.id}
                           className="flex items-center justify-between p-3 rounded-lg bg-tacktix-dark-light/50 border border-white/5"
                         >
                           <div className="flex items-center">
                             <div className="h-10 w-10 bg-tacktix-dark rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                              {["X", "S", "F", "G", "V", "T"][idx]}
+                              {match.host?.username?.charAt(0) || "?"}
                             </div>
                             <div>
                               <div className="font-medium text-white">
-                                {["xSniperKing", "ShadowNinja", "FragMaster", "GhostSniper", "VictoryHunter", "TacticalOps"][idx]}
+                                {match.host?.username || "Unknown Player"}
                               </div>
                               <div className="text-xs text-tacktix-blue">
-                                {["78%", "69%", "72%", "63%", "70%", "61%"][idx]} Win Rate
+                                {match.game_mode} on {match.map_name}
                               </div>
                             </div>
                           </div>
                           <div>
-                            <Button variant="outline" size="sm" className="text-xs">
-                              Challenge
-                            </Button>
+                            <Link to={`/join-match/${match.id}`}>
+                              <Button variant="outline" size="sm" className="text-xs">
+                                Join
+                              </Button>
+                            </Link>
                           </div>
                         </div>
                       ))}
+                      
+                      {matches.length === 0 && !loading && (
+                        <div className="col-span-2 text-center py-8 text-gray-400">
+                          No players are currently looking for matches.
+                          <div className="mt-4">
+                            <Button variant="default" size="sm" onClick={() => document.getElementById('create-tab')?.click()}>
+                              Create a Match
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
-                    <div className="text-center mt-6">
-                      <Button variant="ghost" className="text-gray-400 text-sm">
-                        Load More Players
-                      </Button>
-                    </div>
+                    {matches.length > 6 && (
+                      <div className="text-center mt-6">
+                        <Button 
+                          variant="ghost" 
+                          className="text-gray-400 text-sm"
+                          onClick={() => navigate('/matchmaking')}
+                        >
+                          View More Matches
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -526,13 +747,20 @@ const Matchmaking = () => {
                       </div>
                     </div>
                   </div>
+                  
+                  {currentUser && (
+                    <div className="flex items-center justify-between mt-2 text-sm">
+                      <span className="text-gray-400">Wallet Balance:</span>
+                      <span className="text-tacktix-blue font-medium">₦{walletBalance.toLocaleString()}</span>
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter>
                   <Button 
                     variant="gradient" 
                     className="w-full" 
                     onClick={handleCreateMatch}
-                    disabled={isCreatingMatch || !selectedMap || selectedBetAmount < 1000}
+                    disabled={isCreatingMatch || !selectedMap || selectedBetAmount < 1000 || !currentUser}
                   >
                     {isCreatingMatch ? (
                       <>
@@ -575,10 +803,10 @@ const Matchmaking = () => {
                     <div className="p-4">
                       <div className="flex items-center mb-4">
                         <div className="h-10 w-10 bg-tacktix-dark-light rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                          X
+                          {currentUser?.email?.charAt(0).toUpperCase() || "?"}
                         </div>
                         <div>
-                          <div className="font-medium text-white">xSniperKing</div>
+                          <div className="font-medium text-white">{currentUser?.email || "Sign in to create"}</div>
                           <div className="text-xs text-gray-400">Host</div>
                         </div>
                       </div>
