@@ -104,3 +104,6 @@ export const FileInput = ({
     </div>
   );
 };
+
+// Add a default export to ensure the module is properly recognized
+export default FileInput;
