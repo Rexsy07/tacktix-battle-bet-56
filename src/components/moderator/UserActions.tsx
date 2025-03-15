@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -76,33 +75,26 @@ const UserActions = ({ userId, username, currentStatus, onActionComplete }: User
           newStatus = currentStatus;
       }
       
-      // Create the report of violating user
-      const { data: reportData, error: reportError } = await supabase
-        .from("reports")
+      // Create a dispute to record this action instead of using reports/moderator_actions
+      const { data: disputeData, error: disputeError } = await supabase
+        .from("disputes")
         .insert({
-          reporter_id: session.user.id,
-          reported_user_id: userId,
+          match_id: "00000000-0000-0000-0000-000000000000", // Placeholder for non-match disputes
+          reported_by: session.user.id,
           reason: `Administrative action: ${action}`,
-          details: notes,
-          status: "resolved"
+          status: "resolved",
+          resolution: notes,
+          admin_notes: JSON.stringify({
+            action_type: action,
+            target_user_id: userId,
+            moderator_id: session.user.id,
+            details: notes
+          })
         })
         .select()
         .single();
       
-      if (reportError) throw reportError;
-      
-      // Log moderator action
-      const { error: logError } = await supabase
-        .from("moderator_actions")
-        .insert({
-          moderator_id: session.user.id,
-          action_type: action,
-          target_user_id: userId,
-          target_report_id: reportData.id,
-          details: notes
-        });
-      
-      if (logError) throw logError;
+      if (disputeError) throw disputeError;
       
       toast({
         title: "Action Taken",

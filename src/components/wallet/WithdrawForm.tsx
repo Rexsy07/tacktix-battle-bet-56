@@ -39,11 +39,20 @@ const WithdrawForm = ({ currentBalance }: { currentBalance: number }) => {
         throw new Error("You must be logged in to make a withdrawal");
       }
       
+      // Get user's wallet
+      const { data: walletData, error: walletError } = await supabase
+        .from("wallets")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+      
+      if (walletError) throw walletError;
+      
       // Create a withdrawal transaction
       const { data: transaction, error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          user_id: session.user.id,
+          wallet_id: walletData.id,
           amount: withdrawAmount,
           transaction_type: "withdrawal",
           status: "pending", // Withdrawals usually need approval
@@ -59,7 +68,7 @@ const WithdrawForm = ({ currentBalance }: { currentBalance: number }) => {
       if (transactionError) throw transactionError;
       
       // Update wallet balance (deduct funds)
-      const { error: walletError } = await supabase.rpc(
+      const { error: walletError2 } = await supabase.rpc(
         "update_wallet_balance", 
         { 
           user_uuid: session.user.id, 
@@ -67,7 +76,7 @@ const WithdrawForm = ({ currentBalance }: { currentBalance: number }) => {
         }
       );
       
-      if (walletError) throw walletError;
+      if (walletError2) throw walletError2;
       
       setIsSuccess(true);
       toast({

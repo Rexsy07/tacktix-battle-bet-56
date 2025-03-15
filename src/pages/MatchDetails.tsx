@@ -1,279 +1,170 @@
-import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/components/ui/use-toast";
-import { 
-  Trophy, Shield, Users, Map, Timer, AlertCircle, 
-  CheckCircle2, XCircle, Camera, MessageSquare, Copy, ArrowLeft
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import PlayerRating from "@/components/match/PlayerRating";
+import { Clock, Trophy, CalendarClock, Swords, MapPin, Coins, AlertTriangle, Users, CheckCircle, XCircle } from "lucide-react";
 import MatchEvidence from "@/components/match/MatchEvidence";
+import PlayerRating from "@/components/match/PlayerRating";
 
 const MatchDetails = () => {
-  const { matchId } = useParams();
-  const { toast } = useToast();
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [match, setMatch] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
-  const [matchData, setMatchData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [showEvidenceModal, setShowEvidenceModal] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
   const [isUserInMatch, setIsUserInMatch] = useState(false);
+  const [isMatchCompleted, setIsMatchCompleted] = useState(false);
+  const [hasRatedOpponent, setHasRatedOpponent] = useState(false);
   
   useEffect(() => {
-    const fetchMatchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Get current user session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (matchId) {
-          // Fix the select query by using specific column hints for foreign key relationships
-          const { data, error } = await supabase
-            .from("matches")
-            .select(`
-              *,
-              host:host_id(id, username, avatar_url),
-              opponent:opponent_id(id, username, avatar_url)
-            `)
-            .eq("id", matchId)
-            .single();
-            
-          if (error) {
-            console.error("Error fetching match:", error);
-            // If match doesn't exist, use mock data instead
-            setMatchData({
-              id: matchId,
-              title: "High Stakes S&D",
-              mode: "Search & Destroy",
-              map: "Standoff",
-              teamSize: "5v5",
-              betAmount: 5000,
-              status: "open", // open, in-progress, completed
-              host: {
-                id: "host123",
-                name: "xSniperKing",
-                avatar: "X",
-                winRate: "78%"
-              },
-              rules: [
-                "Standard Search & Destroy rules",
-                "First to 6 rounds wins",
-                "Screenshots required for verification",
-                "Voice chat required"
-              ],
-              teams: {
-                alpha: [
-                  { id: "player1", name: "xSniperKing", status: "ready", avatar: "X" },
-                  { id: "player2", name: "FragMaster", status: "ready", avatar: "F" },
-                  { id: "player3", name: null, status: "empty", avatar: null },
-                  { id: "player4", name: null, status: "empty", avatar: null },
-                  { id: "player5", name: null, status: "empty", avatar: null },
-                ],
-                bravo: [
-                  { id: "player6", name: "ShadowNinja", status: "ready", avatar: "S" },
-                  { id: "player7", name: null, status: "empty", avatar: null },
-                  { id: "player8", name: null, status: "empty", avatar: null },
-                  { id: "player9", name: null, status: "empty", avatar: null },
-                  { id: "player10", name: null, status: "empty", avatar: null },
-                ]
-              },
-              createdAt: "2023-07-15T14:30:00Z",
-              startTime: "2023-07-15T15:00:00Z",
-              lobbyCode: "TXE75392",
-              escrowAmount: 10000,
-            });
-          } else {
-            // If real data exists, map it to our model
-            const formattedData = {
-              id: data.id,
-              title: `${data.game_mode} Match`,
-              mode: data.game_mode,
-              map: data.map_name,
-              teamSize: "5v5", // This would come from DB in a real app
-              betAmount: data.bet_amount,
-              status: data.status,
-              host: {
-                id: data.host?.id,
-                name: data.host?.username,
-                avatar: data.host?.avatar_url?.charAt(0) || "X",
-                winRate: "78%" // This would come from DB in a real app
-              },
-              rules: [
-                `Standard ${data.game_mode} rules`,
-                "First to 6 rounds wins",
-                "Screenshots required for verification",
-                "Voice chat required"
-              ],
-              teams: {
-                alpha: [
-                  { id: data.host?.id, name: data.host?.username, status: "ready", avatar: data.host?.avatar_url?.charAt(0) || "X" },
-                  { id: "player2", name: null, status: "empty", avatar: null },
-                  { id: "player3", name: null, status: "empty", avatar: null },
-                  { id: "player4", name: null, status: "empty", avatar: null },
-                  { id: "player5", name: null, status: "empty", avatar: null },
-                ],
-                bravo: data.opponent ? [
-                  { id: data.opponent?.id, name: data.opponent?.username, status: "ready", avatar: data.opponent?.avatar_url?.charAt(0) || "O" },
-                  { id: "player7", name: null, status: "empty", avatar: null },
-                  { id: "player8", name: null, status: "empty", avatar: null },
-                  { id: "player9", name: null, status: "empty", avatar: null },
-                  { id: "player10", name: null, status: "empty", avatar: null },
-                ] : [
-                  { id: "player6", name: null, status: "empty", avatar: null },
-                  { id: "player7", name: null, status: "empty", avatar: null },
-                  { id: "player8", name: null, status: "empty", avatar: null },
-                  { id: "player9", name: null, status: "empty", avatar: null },
-                  { id: "player10", name: null, status: "empty", avatar: null },
-                ]
-              },
-              createdAt: data.created_at,
-              startTime: data.start_time || new Date(new Date().getTime() + 30 * 60000).toISOString(), // Default to 30 mins from now
-              lobbyCode: data.lobby_code,
-              escrowAmount: data.bet_amount * 2,
-            };
-            
-            setMatchData(formattedData);
-            
-            // Check if current user is in the match
-            if (session?.user) {
-              if (data.host?.id === session.user.id || data.opponent?.id === session.user.id) {
-                setIsUserInMatch(true);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchMatchData();
-  }, [matchId]);
+    fetchMatchDetails();
+    fetchCurrentUser();
+  }, [id]);
   
-  const timeLeft = () => {
-    if (!matchData) return "Loading...";
+  useEffect(() => {
+    if (currentUser && match) {
+      checkUserInMatch();
+      checkMatchStatus();
+      checkRatingStatus();
+    }
+  }, [currentUser, match]);
+  
+  const fetchMatchDetails = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("matches")
+        .select(`
+          *,
+          host:host_id(id, username, avatar_url),
+          opponent:opponent_id(id, username, avatar_url),
+          winner:winner_id(id, username, avatar_url)
+        `)
+        .eq("id", id)
+        .single();
+      
+      if (error) throw error;
+      setMatch(data);
+    } catch (error) {
+      console.error("Error fetching match:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+        
+        if (error) throw error;
+        setCurrentUser(data);
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error);
+    }
+  };
+  
+  const checkUserInMatch = () => {
+    if (!currentUser || !match) return;
     
-    const start = new Date(matchData.startTime);
-    const now = new Date();
-    const diff = start.getTime() - now.getTime();
+    const userId = currentUser.id;
+    const isHost = match.host.id === userId;
+    const isOpponent = match.opponent?.id === userId;
     
-    if (diff <= 0) return "Starting now";
+    setIsUserInMatch(isHost || isOpponent);
+  };
+  
+  const checkMatchStatus = () => {
+    if (!match) return;
+    setIsMatchCompleted(match.status === "completed");
+  };
+  
+  const checkRatingStatus = async () => {
+    if (!currentUser || !match || !isUserInMatch || !isMatchCompleted) return;
     
-    const minutes = Math.floor(diff / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    
-    return `${minutes}m ${seconds}s`;
+    try {
+      const opponentId = match.host.id === currentUser.id ? match.opponent.id : match.host.id;
+      
+      const { data, error } = await supabase
+        .from("user_ratings")
+        .select("*")
+        .eq("match_id", match.id)
+        .eq("rater_id", currentUser.id)
+        .eq("rated_id", opponentId);
+      
+      if (error) throw error;
+      
+      setHasRatedOpponent(data && data.length > 0);
+    } catch (error) {
+      console.error("Error checking rating status:", error);
+    }
   };
   
   const handleJoinMatch = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to join this match",
+        variant: "destructive",
+      });
+      navigate("/sign-in");
+      return;
+    }
+    
+    setIsJoining(true);
+    
     try {
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to join a match",
-          variant: "destructive",
-        });
-        navigate("/sign-in");
-        return;
-      }
-      
-      setIsJoining(true);
-      
-      // Check user wallet balance
+      // Check if user has enough balance
       const { data: walletData, error: walletError } = await supabase
         .from("wallets")
         .select("balance")
-        .eq("user_id", session.user.id)
+        .eq("user_id", currentUser.id)
         .single();
-        
-      if (walletError) {
-        throw new Error("Could not retrieve wallet information");
+      
+      if (walletError) throw walletError;
+      
+      if (walletData.balance < match.bet_amount) {
+        throw new Error("Insufficient funds. Please add more funds to your wallet.");
       }
       
-      if (walletData.balance < matchData.betAmount) {
-        toast({
-          title: "Insufficient Funds",
-          description: `You need ₦${matchData.betAmount.toLocaleString()} to join this match.`,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Update the match with the user as the opponent
+      // Update match with opponent
       const { error: matchError } = await supabase
         .from("matches")
-        .update({ 
-          opponent_id: session.user.id,
-          status: "waiting",
+        .update({
+          opponent_id: currentUser.id,
+          status: "matched",
           updated_at: new Date().toISOString()
         })
-        .eq("id", matchData.id)
-        .eq("status", "pending"); // Only join if match is still open
-        
-      if (matchError) {
-        if (matchError.code === "23505") {
-          toast({
-            title: "Match Already Full",
-            description: "This match has already been joined by another player.",
-            variant: "destructive",
-          });
-        } else {
-          throw matchError;
-        }
-        return;
-      }
+        .eq("id", match.id);
       
-      // Deduct bet amount from user's wallet
-      const { error: deductError } = await supabase
-        .from("wallets")
-        .update({ 
-          balance: walletData.balance - matchData.betAmount,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", session.user.id);
-        
-      if (deductError) {
-        throw deductError;
-      }
+      if (matchError) throw matchError;
       
-      // Record transaction
-      await supabase
-        .from("transactions")
-        .insert({
-          wallet_id: session.user.id,
-          amount: -matchData.betAmount,
-          type: "bet",
-          status: "completed",
-          description: `Bet placed on match ${matchData.id}`
-        });
-        
       toast({
-        title: "Match Joined!",
-        description: `You have successfully joined the ${matchData.mode} match on ${matchData.map}.`,
+        title: "Match Joined",
+        description: "You have successfully joined this match",
         variant: "default",
       });
       
-      // Redirect to match lobby
-      navigate(`/join-match/${matchData.id}`);
+      // Refresh match data
+      fetchMatchDetails();
       
-    } catch (error: any) {
-      console.error("Error joining match:", error);
+    } catch (error) {
       toast({
-        title: "Failed to Join Match",
-        description: error.message || "An unexpected error occurred",
+        title: "Failed to Join",
+        description: error.message || "An error occurred while joining the match",
         variant: "destructive",
       });
     } finally {
@@ -281,33 +172,63 @@ const MatchDetails = () => {
     }
   };
   
-  const handleCopyLobbyCode = () => {
-    navigator.clipboard.writeText(matchData.lobbyCode);
-    toast({
-      title: "Copied!",
-      description: "Lobby code copied to clipboard",
-      variant: "default",
+  const handleReportMatch = async () => {
+    if (!currentUser || !isUserInMatch) {
+      toast({
+        title: "Action Not Allowed",
+        description: "You must be a participant in this match to report issues",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsReporting(true);
+    
+    try {
+      // Navigate to dispute form
+      navigate(`/report-match/${match.id}`);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to initiate report process",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReporting(false);
+    }
+  };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not set";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-NG', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
   
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tacktix-blue"></div>
+        <div className="flex justify-center items-center h-[60vh]">
+          <Clock className="h-12 w-12 animate-spin text-gray-400" />
         </div>
       </Layout>
     );
   }
   
-  if (!matchData) {
+  if (!match) {
     return (
       <Layout>
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold">Match not found</h2>
-          <p className="text-gray-400 mt-2">The match you're looking for doesn't exist or has been removed.</p>
-          <Button variant="gradient" className="mt-4" onClick={() => navigate('/matchmaking')}>
-            Browse Matches
+        <div className="flex flex-col items-center justify-center h-[60vh]">
+          <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Match Not Found</h2>
+          <p className="text-gray-400 mb-6">The match you're looking for doesn't exist or has been removed</p>
+          <Button onClick={() => navigate("/matches")}>
+            View All Matches
           </Button>
         </div>
       </Layout>
@@ -316,396 +237,265 @@ const MatchDetails = () => {
   
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Rating Modal */}
-        {showRatingModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="max-w-md w-full">
-              <PlayerRating 
-                playerName={matchData.status === "completed" ? 
-                  (matchData.host.id === matchData.winner ? matchData.host.name : "Opponent") : 
-                  matchData.host.name
-                }
-                playerId={matchData.host.id}
-                matchId={matchData.id}
-                onClose={() => setShowRatingModal(false)}
-              />
-            </div>
-          </div>
-        )}
-        
-        {/* Evidence Modal */}
-        {showEvidenceModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="max-w-lg w-full">
-              <MatchEvidence 
-                matchId={matchData.id}
-                matchStatus={matchData.status === "open" ? "waiting" : matchData.status}
-              />
-              <div className="mt-4 flex justify-end">
-                <Button onClick={() => setShowEvidenceModal(false)}>Close</Button>
-              </div>
-            </div>
-          </div>
-        )}
-      
-        <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
-          <div className="flex items-center gap-2">
-            <Link to="/matchmaking">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <ArrowLeft size={16} />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold">{matchData.title}</h1>
-              <div className="flex items-center gap-2 text-gray-400">
-                <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
-                  {matchData.mode}
-                </Badge>
-                <span>•</span>
-                <span>{matchData.map}</span>
-                <span>•</span>
-                <span>{matchData.teamSize}</span>
-              </div>
-            </div>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row justify-between gap-4 md:items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Match Details</h1>
+            <p className="text-gray-400">View match information and status</p>
           </div>
           
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="text-tacktix-blue font-bold text-xl">
-              ₦{Number(matchData.betAmount).toLocaleString()}
-            </div>
-            {matchData.status === "completed" ? (
+          <div className="flex gap-2">
+            {!isUserInMatch && match.status === "open" && (
               <Button 
-                variant="outline" 
-                className="flex-1 md:flex-grow-0" 
-                onClick={() => setShowRatingModal(true)}
-              >
-                Rate Player
-              </Button>
-            ) : matchData.status === "in-progress" ? (
-              <Button 
-                variant="gradient" 
-                className="flex-1 md:flex-grow-0" 
-                onClick={() => navigate(`/spectate/${matchData.id}`)}
-              >
-                Spectate Match
-              </Button>
-            ) : isUserInMatch ? (
-              <Button 
-                variant="gradient" 
-                className="flex-1 md:flex-grow-0" 
-                onClick={() => setShowEvidenceModal(true)}
-              >
-                Submit Evidence
-              </Button>
-            ) : (
-              <Button 
-                variant="gradient" 
-                className="flex-1 md:flex-grow-0" 
                 onClick={handleJoinMatch} 
-                disabled={isJoining || matchData.status !== "open"}
+                disabled={isJoining}
               >
                 {isJoining ? (
                   <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    <Clock className="mr-2 h-4 w-4 animate-spin" />
                     Joining...
                   </>
-                ) : matchData.status === "open" ? (
-                  "Join Match"
                 ) : (
-                  "Match Full"
+                  <>
+                    <Swords className="mr-2 h-4 w-4" />
+                    Join Match
+                  </>
                 )}
+              </Button>
+            )}
+            
+            {isUserInMatch && match.status !== "completed" && (
+              <Button 
+                variant="outline" 
+                onClick={handleReportMatch}
+                disabled={isReporting}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Report Issue
               </Button>
             )}
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <Card className="glass-card">
-              <CardHeader className="pb-3">
-                <CardTitle>Teams</CardTitle>
-                <CardDescription>Teams will be finalized when all slots are filled</CardDescription>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Match #{match.id.slice(0, 8)}</CardTitle>
+                  <Badge variant={
+                    match.status === "open" ? "outline" :
+                    match.status === "matched" ? "badge" :
+                    match.status === "in_progress" ? "badge" :
+                    match.status === "completed" ? "success" :
+                    "destructive"
+                  }>
+                    {match.status.replace('_', ' ').toUpperCase()}
+                  </Badge>
+                </div>
+                <CardDescription>
+                  Created {formatDate(match.created_at)}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Team Alpha */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-white flex items-center">
-                        <Badge variant="outline" className="mr-2 bg-tacktix-dark-light">ALPHA</Badge>
-                        Team {matchData.host.name}
-                      </h3>
-                      <Badge variant="outline" size="sm">
-                        <Trophy size={12} className="mr-1" />
-                        Host
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      {matchData.teams.alpha.map((player, idx) => (
-                        <div 
-                          key={`alpha-${idx}`}
-                          className="flex items-center justify-between p-2 rounded-md bg-tacktix-dark-light/30 border border-white/5"
-                        >
-                          {player.name ? (
-                            <>
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 bg-tacktix-dark rounded-full flex items-center justify-center text-sm font-medium mr-2">
-                                  {player.avatar}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-white">{player.name}</span>
-                                  <span className="text-xs text-tacktix-blue">Player {idx + 1}</span>
-                                </div>
-                              </div>
-                              <Badge variant="success" className="text-xs">
-                                <CheckCircle2 size={12} className="mr-1" />
-                                Ready
-                              </Badge>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 bg-tacktix-dark-light/50 rounded-full flex items-center justify-center text-sm font-medium text-gray-500 mr-2">
-                                  ?
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-gray-400">Empty Slot</span>
-                                  <span className="text-xs text-gray-500">Player {idx + 1}</span>
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="text-xs text-gray-400">
-                                <XCircle size={12} className="mr-1" />
-                                Open
-                              </Badge>
-                            </>
-                          )}
+              
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-tacktix-dark-light p-4 rounded-lg">
+                    <h3 className="font-medium mb-3 flex items-center">
+                      <Users className="mr-2 h-4 w-4" />
+                      Players
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={match.host.avatar_url} />
+                            <AvatarFallback>{match.host.username.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{match.host.username}</p>
+                            <p className="text-xs text-gray-400">Host</p>
+                          </div>
                         </div>
-                      ))}
+                        
+                        {match.winner && match.winner.id === match.host.id && (
+                          <Badge variant="success" className="flex items-center gap-1">
+                            <Trophy className="h-3 w-3" />
+                            Winner
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex items-center justify-between">
+                        {match.opponent ? (
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={match.opponent.avatar_url} />
+                              <AvatarFallback>{match.opponent.username.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{match.opponent.username}</p>
+                              <p className="text-xs text-gray-400">Opponent</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarFallback>?</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-gray-400">Waiting for opponent...</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {match.winner && match.opponent && match.winner.id === match.opponent.id && (
+                          <Badge variant="success" className="flex items-center gap-1">
+                            <Trophy className="h-3 w-3" />
+                            Winner
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Team Bravo */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-white flex items-center">
-                        <Badge variant="outline" className="mr-2 bg-tacktix-dark-light">BRAVO</Badge>
-                        Challengers
-                      </h3>
-                    </div>
-                    <div className="space-y-2">
-                      {matchData.teams.bravo.map((player, idx) => (
-                        <div 
-                          key={`bravo-${idx}`}
-                          className="flex items-center justify-between p-2 rounded-md bg-tacktix-dark-light/30 border border-white/5"
-                        >
-                          {player.name ? (
-                            <>
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 bg-tacktix-dark rounded-full flex items-center justify-center text-sm font-medium mr-2">
-                                  {player.avatar}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-white">{player.name}</span>
-                                  <span className="text-xs text-tacktix-blue">Player {idx + 1}</span>
-                                </div>
-                              </div>
-                              <Badge variant="success" className="text-xs">
-                                <CheckCircle2 size={12} className="mr-1" />
-                                Ready
-                              </Badge>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 bg-tacktix-dark-light/50 rounded-full flex items-center justify-center text-sm font-medium text-gray-500 mr-2">
-                                  ?
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-gray-400">Empty Slot</span>
-                                  <span className="text-xs text-gray-500">Player {idx + 1}</span>
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="text-xs text-gray-400">
-                                <XCircle size={12} className="mr-1" />
-                                Open
-                              </Badge>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                  <div className="bg-tacktix-dark-light p-4 rounded-lg">
+                    <h3 className="font-medium mb-3 flex items-center">
+                      <Swords className="mr-2 h-4 w-4" />
+                      Match Details
+                    </h3>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Game Mode:</span>
+                        <span className="font-medium">{match.game_mode}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Map:</span>
+                        <span className="font-medium">{match.map_name}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Bet Amount:</span>
+                        <span className="font-medium text-tacktix-blue">₦{match.bet_amount.toLocaleString()}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Lobby Code:</span>
+                        <span className="font-medium">{match.lobby_code}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">VIP Match:</span>
+                        <span className="font-medium">{match.is_vip_match ? "Yes" : "No"}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Start Time:</span>
+                        <span className="font-medium">{formatDate(match.start_time)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                {match.status === "completed" && (
+                  <div className="bg-tacktix-dark-light p-4 rounded-lg">
+                    <h3 className="font-medium mb-3 flex items-center">
+                      <Trophy className="mr-2 h-4 w-4 text-yellow-500" />
+                      Match Result
+                    </h3>
+                    
+                    <div className="flex items-center justify-center p-4">
+                      {match.winner ? (
+                        <div className="text-center">
+                          <div className="flex justify-center mb-2">
+                            <Avatar className="h-16 w-16">
+                              <AvatarImage src={match.winner.avatar_url} />
+                              <AvatarFallback>{match.winner.username.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <p className="font-medium text-lg">{match.winner.username}</p>
+                          <Badge variant="success" className="mt-2">
+                            Winner
+                          </Badge>
+                          <p className="text-tacktix-blue font-bold mt-2">
+                            +₦{(match.bet_amount * 2).toLocaleString()}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400">
+                          <XCircle className="h-12 w-12 mx-auto mb-2" />
+                          <p>No winner declared</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {isUserInMatch && match.status === "completed" && !hasRatedOpponent && (
+                  <div className="bg-tacktix-dark-light p-4 rounded-lg">
+                    <h3 className="font-medium mb-3">Rate Your Opponent</h3>
+                    <PlayerRating 
+                      matchId={match.id}
+                      opponentId={match.host.id === currentUser.id ? match.opponent.id : match.host.id}
+                      opponentName={match.host.id === currentUser.id ? match.opponent.username : match.host.username}
+                      onRatingComplete={() => setHasRatedOpponent(true)}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="glass-card">
-                <CardHeader className="pb-3">
-                  <CardTitle>Match Rules</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {matchData.rules.map((rule, idx) => (
-                      <li key={idx} className="flex items-start">
-                        <CheckCircle2 size={16} className="text-tacktix-blue mr-2 mt-0.5 flex-shrink-0" />
-                        <span>{rule}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-              
-              <Card className="glass-card">
-                <CardHeader className="pb-3">
-                  <CardTitle>Match Verification</CardTitle>
-                  <CardDescription>Requirements for match validation</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 rounded-md bg-tacktix-dark-light/30 border border-white/5">
-                      <div className="flex items-center">
-                        <Camera size={18} className="text-tacktix-blue mr-2" />
-                        <span>Pre-match Screenshot</span>
-                      </div>
-                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400">Required</Badge>
-                    </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-md bg-tacktix-dark-light/30 border border-white/5">
-                      <div className="flex items-center">
-                        <Camera size={18} className="text-tacktix-blue mr-2" />
-                        <span>Post-match Screenshot</span>
-                      </div>
-                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400">Required</Badge>
-                    </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-md bg-tacktix-dark-light/30 border border-white/5">
-                      <div className="flex items-center">
-                        <MessageSquare size={18} className="text-tacktix-blue mr-2" />
-                        <span>Report Match Result</span>
-                      </div>
-                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400">Required</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {isUserInMatch && (
+              <MatchEvidence matchId={match.id} userId={currentUser.id} matchStatus={match.status} />
+            )}
           </div>
           
-          <div className="md:col-span-1 space-y-6">
-            <Card className="glass-card">
-              <CardHeader className="pb-3">
-                <CardTitle>Match Details</CardTitle>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Match Rules</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-400 flex items-center">
-                      <Shield size={16} className="mr-2" />
-                      Game Mode
-                    </div>
-                    <div className="font-medium">{matchData.mode}</div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-400 flex items-center">
-                      <Map size={16} className="mr-2" />
-                      Map
-                    </div>
-                    <div className="font-medium">{matchData.map}</div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-400 flex items-center">
-                      <Users size={16} className="mr-2" />
-                      Team Size
-                    </div>
-                    <div className="font-medium">{matchData.teamSize}</div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-400 flex items-center">
-                      <Trophy size={16} className="mr-2" />
-                      Bet Amount
-                    </div>
-                    <div className="font-medium text-tacktix-blue">₦{Number(matchData.betAmount).toLocaleString()}</div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-400 flex items-center">
-                      <AlertCircle size={16} className="mr-2" />
-                      Status
-                    </div>
-                    <Badge variant="outline" className={`
-                      ${matchData.status === "open" ? "bg-green-600/10 text-green-500" : ""}
-                      ${matchData.status === "waiting" ? "bg-yellow-600/10 text-yellow-400" : ""}
-                      ${matchData.status === "in-progress" ? "bg-blue-600/10 text-blue-400" : ""}
-                      ${matchData.status === "completed" ? "bg-purple-600/10 text-purple-400" : ""}
-                    `}>
-                      {matchData.status === "open" ? "Recruiting Players" : ""}
-                      {matchData.status === "waiting" ? "Waiting to Start" : ""}
-                      {matchData.status === "in-progress" ? "In Progress" : ""}
-                      {matchData.status === "completed" ? "Completed" : ""}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-400 flex items-center">
-                      <Timer size={16} className="mr-2" />
-                      {matchData.status === "completed" ? "Completed" : "Starts in"}
-                    </div>
-                    <div className="font-medium text-yellow-400">{matchData.status === "completed" ? "Match Over" : timeLeft()}</div>
-                  </div>
-                  
-                  <Separator className="my-2 bg-white/5" />
-                  
-                  <div>
-                    <div className="text-gray-400 mb-2 text-sm">Match Host</div>
-                    <div className="flex items-center p-3 rounded-md bg-tacktix-dark-light/30 border border-white/5">
-                      <div className="h-10 w-10 bg-tacktix-dark rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                        {matchData.host.avatar}
-                      </div>
-                      <div>
-                        <div className="font-medium text-white">{matchData.host.name}</div>
-                        <div className="text-xs text-tacktix-blue">{matchData.host.winRate} Win Rate</div>
-                      </div>
-                    </div>
-                  </div>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium">General Rules</h4>
+                  <ul className="list-disc pl-5 text-sm space-y-1 text-gray-300">
+                    <li>Both players must join the match lobby on time</li>
+                    <li>Screenshots of match results are required</li>
+                    <li>No cheating or exploits allowed</li>
+                    <li>Be respectful to your opponent</li>
+                    <li>Report any issues immediately</li>
+                  </ul>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-medium">Game Specific Rules</h4>
+                  <ul className="list-disc pl-5 text-sm space-y-1 text-gray-300">
+                    <li>Mode: {match.game_mode}</li>
+                    <li>Map: {match.map_name}</li>
+                    <li>First to 10 kills wins</li>
+                    <li>No restricted weapons</li>
+                    <li>Maximum match time: 15 minutes</li>
+                  </ul>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col">
-                <Button
-                  variant="outline"
-                  className="w-full flex justify-between items-center bg-tacktix-dark-light border-white/10 mb-3"
-                  onClick={handleCopyLobbyCode}
-                >
-                  <span>Lobby Code: <span className="font-bold">{matchData.lobbyCode}</span></span>
-                  <Copy size={16} />
-                </Button>
-                
-                <div className="p-4 bg-tacktix-blue/10 border border-tacktix-blue/20 rounded-md w-full">
-                  <div className="flex items-start">
-                    <AlertCircle size={18} className="text-tacktix-blue mr-2 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-300">
-                        By joining this match, ₦{Number(matchData.betAmount).toLocaleString()} will be deducted from your wallet and held in escrow until the match is completed.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardFooter>
             </Card>
             
-            <Card className="glass-card">
-              <CardHeader className="pb-3">
-                <CardTitle>Match Chat</CardTitle>
-                <CardDescription>Communicate with other players</CardDescription>
+            <Card>
+              <CardHeader>
+                <CardTitle>Need Help?</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-48 flex items-center justify-center border border-dashed border-white/10 rounded-md">
-                  <p className="text-gray-400 text-sm">Chat will be available when you join the match</p>
-                </div>
+                <p className="text-sm text-gray-400 mb-4">
+                  If you're experiencing issues with this match or have questions, our support team is here to help.
+                </p>
+                <Button variant="outline" className="w-full">
+                  Contact Support
+                </Button>
               </CardContent>
             </Card>
           </div>

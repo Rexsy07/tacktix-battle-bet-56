@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +51,7 @@ const DisputeDetails = ({ disputeId, onClose, onResolved }: DisputeDetailsProps)
       
       setDispute(disputeData);
       
-      // Fetch match details
+      // Fetch match details with proper column hints
       const { data: matchData, error: matchError } = await supabase
         .from("matches")
         .select(`
@@ -158,18 +157,17 @@ const DisputeDetails = ({ disputeId, onClose, onResolved }: DisputeDetailsProps)
         if (outcomeError) throw outcomeError;
       }
       
-      // Log moderator action
+      // Log action in disputes table instead of moderator_actions
       const { error: logError } = await supabase
-        .from("moderator_actions")
-        .insert({
-          moderator_id: session.user.id,
-          action_type: "resolve_dispute",
-          target_dispute_id: disputeId,
-          details: {
-            resolution: resolution,
-            action: resolutionAction
-          }
-        });
+        .from("disputes")
+        .update({
+          admin_notes: JSON.stringify({
+            moderator_id: session.user.id,
+            action: resolutionAction,
+            notes: adminNotes
+          })
+        })
+        .eq("id", disputeId);
       
       if (logError) throw logError;
       

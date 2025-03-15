@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Calendar, CheckCircle, Clock, XCircle, Search, ArrowDownRight, ArrowUpRight, RefreshCw } from "lucide-react";
+import { Calendar, CheckCircle, Clock, XCircle, Search, ArrowDownRight, ArrowUpRight, RefreshCw, Award, Star as StarIcon, Circle as CircleIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Transaction {
@@ -50,7 +50,7 @@ const TransactionList = () => {
       
       if (error) throw error;
       
-      setTransactions(data || []);
+      setTransactions(data as Transaction[] || []);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     } finally {
@@ -90,15 +90,15 @@ const TransactionList = () => {
       case 'withdrawal':
         return <ArrowUpRight size={16} className="text-red-500" />;
       case 'win':
-        return <Trophy size={16} className="text-yellow-500" />;
+        return <Award size={16} className="text-yellow-500" />;
       case 'loss':
         return <XCircle size={16} className="text-gray-500" />;
       case 'refund':
         return <RefreshCw size={16} className="text-blue-500" />;
       case 'vip_subscription':
-        return <Star size={16} className="text-purple-500" />;
+        return <StarIcon size={16} className="text-purple-500" />;
       default:
-        return <Circle size={16} className="text-gray-500" />;
+        return <CircleIcon size={16} className="text-gray-500" />;
     }
   };
   

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -173,7 +172,7 @@ const VIPPlans = ({ currentWalletBalance, currentSubscription, onSubscriptionCha
           <Card key={plan.id} className={`relative overflow-hidden ${plan.isPopular ? 'border-tacktix-blue/30 shadow-lg shadow-tacktix-blue/10' : ''}`}>
             {plan.isPopular && (
               <div className="absolute top-0 right-0">
-                <Badge variant="gradient" className="rounded-none rounded-bl-lg py-1 px-3">
+                <Badge variant="default" className="rounded-none rounded-bl-lg py-1 px-3">
                   Popular
                 </Badge>
               </div>
@@ -200,7 +199,7 @@ const VIPPlans = ({ currentWalletBalance, currentSubscription, onSubscriptionCha
             
             <CardFooter>
               <Button 
-                variant={plan.isPopular ? "gradient" : "outline"} 
+                variant={plan.isPopular ? "default" : "outline"} 
                 className="w-full"
                 onClick={() => handleSelectPlan(plan)}
                 disabled={isCurrentPlan(plan.level)}

@@ -34,11 +34,20 @@ const DepositForm = () => {
         throw new Error("You must be logged in to make a deposit");
       }
       
+      // Get user's wallet
+      const { data: walletData, error: walletError } = await supabase
+        .from("wallets")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+      
+      if (walletError) throw walletError;
+      
       // Create a deposit transaction
       const { data: transaction, error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          user_id: session.user.id,
+          wallet_id: walletData.id,
           amount: depositAmount,
           transaction_type: "deposit",
           status: "completed", // In a real app, this would be "pending" until payment is confirmed
@@ -51,7 +60,7 @@ const DepositForm = () => {
       if (transactionError) throw transactionError;
       
       // Update wallet balance
-      const { error: walletError } = await supabase.rpc(
+      const { error: walletError2 } = await supabase.rpc(
         "update_wallet_balance", 
         { 
           user_uuid: session.user.id, 
@@ -59,7 +68,7 @@ const DepositForm = () => {
         }
       );
       
-      if (walletError) throw walletError;
+      if (walletError2) throw walletError2;
       
       setIsSuccess(true);
       toast({
