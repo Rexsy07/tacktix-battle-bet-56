@@ -557,59 +557,57 @@ const MatchDetails = () => {
                 )}
               </CardContent>
             </Card>
-            
-            
           </div>
           
-          
-        
-      {isCompletedMatch && isParticipant && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ThumbsUp className="h-5 w-5 mr-2 text-green-500" />
-              Rate Your Opponent
-            </CardTitle>
-            <CardDescription>How was your experience with this player?</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {hasRated ? (
-              <div className="text-center py-4">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                <p className="text-lg font-medium">Thanks for your rating!</p>
-                <p className="text-gray-400">You've already rated your opponent for this match.</p>
-              </div>
-            ) : (
-              <PlayerRating 
-                playerName={isHost ? match.opponent.username : match.host.username}
-                playerId={isHost ? match.opponent.id : match.host.id}
-                matchId={match.id}
-                playerAvatar={isHost ? match.opponent.avatar_url : match.host.avatar_url}
-                onRatingComplete={() => setHasRated(true)}
-              />
+          <div className="space-y-6">
+            {isCompletedMatch && isParticipant && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <ThumbsUp className="h-5 w-5 mr-2 text-green-500" />
+                    Rate Your Opponent
+                  </CardTitle>
+                  <CardDescription>How was your experience with this player?</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {hasRated ? (
+                    <div className="text-center py-4">
+                      <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                      <p className="text-lg font-medium">Thanks for your rating!</p>
+                      <p className="text-gray-400">You've already rated your opponent for this match.</p>
+                    </div>
+                  ) : (
+                    <PlayerRating 
+                      playerName={isHost ? match.opponent.username : match.host.username}
+                      playerId={isHost ? match.opponent.id : match.host.id}
+                      matchId={match.id}
+                      playerAvatar={isHost ? match.opponent.avatar_url : match.host.avatar_url}
+                      onRatingComplete={() => setHasRated(true)}
+                    />
+                  )}
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-      )}
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2 text-tacktix-blue" />
-            Match Evidence
-          </CardTitle>
-          <CardDescription>Upload screenshots as evidence</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MatchEvidence 
-            matchId={match.id}
-            currentUserId={currentUser?.id}
-            matchStatus={match.status}
-          />
-        </CardContent>
-      </Card>
-    
-        
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MessageSquare className="h-5 w-5 mr-2 text-tacktix-blue" />
+                  Match Evidence
+                </CardTitle>
+                <CardDescription>Upload screenshots as evidence</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MatchEvidence 
+                  matchId={match.id}
+                  currentUserId={currentUser?.id}
+                  matchStatus={match.status}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
       
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
         <DialogContent>
