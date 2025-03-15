@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { FileInput } from "@/components/ui/file-input"
+import { FileInput } from "@/components/ui/file-input";
 import { CheckCircle, Upload, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
