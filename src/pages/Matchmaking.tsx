@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -177,7 +176,7 @@ const Matchmaking = () => {
         .from('wallets')
         .update({ 
           balance: walletBalance - selectedBetAmount,
-          updated_at: new Date()
+          updated_at: new Date().toISOString()
         })
         .eq('user_id', currentUser.id);
         
@@ -299,7 +298,7 @@ const Matchmaking = () => {
   const formatTimeRemaining = (createdAt) => {
     const created = new Date(createdAt);
     const now = new Date();
-    const timeOpen = now - created;
+    const timeOpen = now.getTime() - created.getTime();
     const minutesOpen = Math.floor(timeOpen / (1000 * 60));
     
     if (minutesOpen < 60) {
@@ -815,52 +814,4 @@ const Matchmaking = () => {
                         <div>
                           <div className="text-sm text-gray-400 mb-2">Match Rules</div>
                           <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">
-                            <p>• Standard {activeGameMode?.name || "game"} rules apply</p>
-                            <p>• First to win according to game rules</p>
-                            <p>• Screenshots required for verification</p>
-                            <p>• Voice chat optional but recommended</p>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <div className="text-sm text-gray-400 mb-2">Required Players</div>
-                          <div className="grid grid-cols-5 gap-2">
-                            {Array.from({ length: parseInt(selectedTeamSize?.charAt(0) || "1") * 2 }).map((_, idx) => (
-                              <div 
-                                key={idx} 
-                                className={`h-10 w-full rounded-md flex items-center justify-center ${
-                                  idx === 0 
-                                    ? "bg-tacktix-blue text-white" 
-                                    : "bg-tacktix-dark-light/30 text-gray-500"
-                                }`}
-                              >
-                                {idx === 0 ? "You" : "?"}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 p-4 bg-tacktix-blue/10 border border-tacktix-blue/20 rounded-md">
-                    <div className="flex items-start">
-                      <AlertCircle size={18} className="text-tacktix-blue mr-2 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-300">
-                          Once created, this match will be visible to all players. Funds will be locked in escrow when the match is filled and both teams confirm participation.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </Layout>
-  );
-};
-
-export default Matchmaking;
+                            <p>• Standard {activeGameMode?.name || "game"} rules apply
