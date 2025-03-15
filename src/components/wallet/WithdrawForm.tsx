@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,10 +56,10 @@ const WithdrawForm = ({ currentBalance }: { currentBalance: number }) => {
           transaction_type: "withdrawal",
           status: "pending", // Withdrawals usually need approval
           payment_method: "bank_transfer",
-          details: { 
+          details: JSON.stringify({ 
             bank_name: bankName,
             account_number: accountNumber
-          }
+          })
         })
         .select()
         .single();

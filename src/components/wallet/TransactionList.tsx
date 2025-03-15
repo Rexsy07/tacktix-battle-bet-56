@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Calendar, CheckCircle, Clock, XCircle, Search, ArrowDownRight, ArrowUpRight, RefreshCw, Award, Star as StarIcon, Circle as CircleIcon } from "lucide-react";
+import { 
+  Calendar, CheckCircle, Clock, XCircle, Search, ArrowDownRight, ArrowUpRight, 
+  RefreshCw, Award, Star as StarIcon, Circle as CircleIcon 
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Transaction {
@@ -36,10 +38,19 @@ const TransactionList = () => {
       
       if (!session) return;
       
+      // Get user's wallet
+      const { data: walletData, error: walletError } = await supabase
+        .from("wallets")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+      
+      if (walletError) throw walletError;
+      
       let query = supabase
         .from("transactions")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("wallet_id", walletData.id)
         .order("created_at", { ascending: false });
         
       if (filter !== "all") {
@@ -50,7 +61,18 @@ const TransactionList = () => {
       
       if (error) throw error;
       
-      setTransactions(data as Transaction[] || []);
+      // Transform the data to match our Transaction interface
+      const transformedData = (data || []).map((item: any) => ({
+        id: item.id,
+        amount: item.amount,
+        transaction_type: item.transaction_type || item.type,
+        status: item.status,
+        payment_method: item.payment_method || 'system',
+        created_at: item.created_at,
+        details: item.details
+      }));
+      
+      setTransactions(transformedData);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     } finally {

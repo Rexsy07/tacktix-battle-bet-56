@@ -210,6 +210,68 @@ export type Database = {
           },
         ]
       }
+      moderator_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          details: Json | null
+          id: string
+          moderator_id: string
+          target_dispute_id: string | null
+          target_report_id: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          moderator_id: string
+          target_dispute_id?: string | null
+          target_report_id?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          moderator_id?: string
+          target_dispute_id?: string | null
+          target_report_id?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderator_actions_moderator_id_fkey"
+            columns: ["moderator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderator_actions_target_dispute_id_fkey"
+            columns: ["target_dispute_id"]
+            isOneToOne: false
+            referencedRelation: "disputes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderator_actions_target_report_id_fkey"
+            columns: ["target_report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderator_actions_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moderators: {
         Row: {
           created_at: string
@@ -275,13 +337,64 @@ export type Database = {
         }
         Relationships: []
       }
+      reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason?: string
+          reported_user_id?: string
+          reporter_id?: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_reported_user_id_fkey"
+            columns: ["reported_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
           created_at: string
           description: string | null
+          details: Json | null
           id: string
+          payment_method: string | null
           status: string
+          transaction_type: string | null
           type: string
           updated_at: string
           wallet_id: string
@@ -290,8 +403,11 @@ export type Database = {
           amount: number
           created_at?: string
           description?: string | null
+          details?: Json | null
           id?: string
+          payment_method?: string | null
           status: string
+          transaction_type?: string | null
           type: string
           updated_at?: string
           wallet_id: string
@@ -300,8 +416,11 @@ export type Database = {
           amount?: number
           created_at?: string
           description?: string | null
+          details?: Json | null
           id?: string
+          payment_method?: string | null
           status?: string
+          transaction_type?: string | null
           type?: string
           updated_at?: string
           wallet_id?: string
@@ -438,10 +557,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_vip_subscription: {
+        Args: {
+          user_uuid: string
+          level: string
+          duration_months: number
+          payment_amount: number
+        }
+        Returns: undefined
+      }
       process_match_outcome: {
         Args: {
           match_id: string
           winner_id: string
+        }
+        Returns: undefined
+      }
+      update_wallet_balance: {
+        Args: {
+          user_uuid: string
+          amount_to_add: number
         }
         Returns: undefined
       }

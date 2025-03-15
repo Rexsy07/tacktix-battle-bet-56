@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -157,7 +158,7 @@ const DisputeDetails = ({ disputeId, onClose, onResolved }: DisputeDetailsProps)
         if (outcomeError) throw outcomeError;
       }
       
-      // Log action in disputes table instead of moderator_actions
+      // Log admin notes as JSON
       const { error: logError } = await supabase
         .from("disputes")
         .update({

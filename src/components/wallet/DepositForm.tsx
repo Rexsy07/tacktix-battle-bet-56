@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +51,7 @@ const DepositForm = () => {
           transaction_type: "deposit",
           status: "completed", // In a real app, this would be "pending" until payment is confirmed
           payment_method: paymentMethod,
-          details: { method: paymentMethod }
+          details: JSON.stringify({ method: paymentMethod })
         })
         .select()
         .single();

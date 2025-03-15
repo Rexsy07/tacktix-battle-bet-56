@@ -1,267 +1,248 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CheckCircle, Shield, Crown, Star, Diamond, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
-interface VIPPlan {
+import React, { useState } from "react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Sparkles, Check, Loader2, Trophy, Calendar, Clock, Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
+
+interface PlanOption {
   id: string;
-  level: "bronze" | "silver" | "gold" | "platinum";
   name: string;
   price: number;
-  duration: number; // months
-  benefits: string[];
+  duration: number;
+  features: string[];
   isPopular?: boolean;
 }
 
 interface VIPPlansProps {
-  currentWalletBalance: number;
-  currentSubscription?: {
-    level: string;
-    endDate: string;
-  };
-  onSubscriptionChange: () => void;
+  isVIP?: boolean;
+  onSubscribe?: () => void;
 }
 
-const VIPPlans = ({ currentWalletBalance, currentSubscription, onSubscriptionChange }: VIPPlansProps) => {
+const plans: PlanOption[] = [
+  {
+    id: "monthly",
+    name: "Monthly VIP",
+    price: 2500,
+    duration: 1,
+    features: [
+      "Reduced platform fees (1.8%)",
+      "VIP badge on your profile",
+      "Early access to new features",
+      "Priority customer support"
+    ]
+  },
+  {
+    id: "quarterly",
+    name: "Quarterly VIP",
+    price: 6500,
+    duration: 3,
+    features: [
+      "Reduced platform fees (1.5%)",
+      "VIP badge on your profile",
+      "Early access to new features",
+      "Priority customer support",
+      "Exclusive VIP tournaments"
+    ],
+    isPopular: true
+  },
+  {
+    id: "annual",
+    name: "Annual VIP",
+    price: 20000,
+    duration: 12,
+    features: [
+      "Lowest platform fees (1%)",
+      "VIP badge on your profile",
+      "Early access to new features",
+      "Priority customer support",
+      "Exclusive VIP tournaments",
+      "Free monthly tokens",
+      "Custom profile styling"
+    ]
+  }
+];
+
+const VIPPlans = ({ isVIP = false, onSubscribe }: VIPPlansProps) => {
   const { toast } = useToast();
-  const [selectedPlan, setSelectedPlan] = useState<VIPPlan | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const plans: VIPPlan[] = [
-    {
-      id: "bronze",
-      level: "bronze",
-      name: "Bronze VIP",
-      price: 5000,
-      duration: 1,
-      benefits: [
-        "Lower Transaction Fees",
-        "Early Access to New Matches",
-        "Basic VIP Profile Badge"
-      ]
-    },
-    {
-      id: "silver",
-      level: "silver",
-      name: "Silver VIP",
-      price: 10000,
-      duration: 1,
-      benefits: [
-        "5% Extra on Winnings",
-        "Participate in Featured Matches",
-        "VIP Support",
-        "Silver VIP Profile Badge"
-      ],
-      isPopular: true
-    },
-    {
-      id: "gold",
-      level: "gold",
-      name: "Gold VIP",
-      price: 25000,
-      duration: 3,
-      benefits: [
-        "10% Extra on Winnings",
-        "No Transaction Fees",
-        "Exclusive Monthly Tournaments",
-        "Gold VIP Profile Badge",
-        "Priority Support"
-      ]
-    },
-    {
-      id: "platinum",
-      level: "platinum",
-      name: "Platinum VIP",
-      price: 50000,
-      duration: 6,
-      benefits: [
-        "15% Extra on Winnings",
-        "Exclusive High Stakes Matches",
-        "Personal Account Manager",
-        "Platinum VIP Profile Badge",
-        "Custom Avatar Frames",
-        "Unlimited Access to All Features"
-      ]
-    }
-  ];
-  
-  const handleSelectPlan = (plan: VIPPlan) => {
-    setSelectedPlan(plan);
-    setIsDialogOpen(true);
-  };
+  const navigate = useNavigate();
+  const [selectedPlan, setSelectedPlan] = useState<string>("quarterly");
+  const [isLoading, setIsLoading] = useState(false);
   
   const handleSubscribe = async () => {
-    if (!selectedPlan) return;
-    
-    setIsProcessing(true);
-    
+    setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        throw new Error("You must be logged in to subscribe");
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to subscribe to VIP",
+          variant: "destructive",
+        });
+        navigate("/sign-in");
+        return;
       }
       
-      if (currentWalletBalance < selectedPlan.price) {
-        throw new Error("Insufficient funds. Please add more funds to your wallet.");
+      const plan = plans.find(p => p.id === selectedPlan);
+      if (!plan) {
+        throw new Error("Invalid plan selected");
       }
       
-      // Create VIP subscription
-      const { data, error } = await supabase.rpc(
+      // Call RPC function to create VIP subscription
+      const { error } = await supabase.rpc(
         "create_vip_subscription",
         {
           user_uuid: session.user.id,
-          level: selectedPlan.level,
-          duration_months: selectedPlan.duration,
-          payment_amount: selectedPlan.price
+          level: plan.id,
+          duration_months: plan.duration,
+          payment_amount: plan.price
         }
       );
       
       if (error) throw error;
       
-      setIsDialogOpen(false);
-      
       toast({
-        title: "Subscription Successful",
-        description: `You are now a ${selectedPlan.name} member!`,
+        title: "Subscription Successful!",
+        description: `You are now a ${plan.name} member`,
         variant: "default",
       });
       
-      // Refresh subscription status
-      onSubscriptionChange();
+      if (onSubscribe) {
+        onSubscribe();
+      }
+      
+      // Reload to update UI
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
       
     } catch (error: any) {
+      let errorMessage = "Failed to process subscription";
+      
+      if (error.message.includes("Insufficient funds")) {
+        errorMessage = "Insufficient funds in your wallet. Please deposit more funds before subscribing.";
+      }
+      
       toast({
         title: "Subscription Failed",
-        description: error.message || "Failed to process subscription",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
-      setIsProcessing(false);
+      setIsLoading(false);
     }
   };
   
-  const getPlanIcon = (level: string) => {
-    switch (level) {
-      case "bronze":
-        return <Shield className="h-8 w-8 text-amber-600" />;
-      case "silver":
-        return <Crown className="h-8 w-8 text-gray-400" />;
-      case "gold":
-        return <Star className="h-8 w-8 text-yellow-500" />;
-      case "platinum":
-        return <Diamond className="h-8 w-8 text-blue-300" />;
-      default:
-        return <Shield className="h-8 w-8 text-gray-500" />;
-    }
+  const handleAddFunds = () => {
+    navigate("/wallet");
   };
   
-  const isCurrentPlan = (level: string) => {
-    return currentSubscription?.level === level;
-  };
-
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {plans.map((plan) => (
-          <Card key={plan.id} className={`relative overflow-hidden ${plan.isPopular ? 'border-tacktix-blue/30 shadow-lg shadow-tacktix-blue/10' : ''}`}>
-            {plan.isPopular && (
-              <div className="absolute top-0 right-0">
-                <Badge variant="default" className="rounded-none rounded-bl-lg py-1 px-3">
-                  Popular
-                </Badge>
-              </div>
-            )}
-            
-            <CardHeader className="pb-4">
-              <div className="mb-2">
-                {getPlanIcon(plan.level)}
-              </div>
-              <CardTitle>{plan.name}</CardTitle>
-              <CardDescription>₦{plan.price.toLocaleString()} / {plan.duration} month{plan.duration > 1 ? 's' : ''}</CardDescription>
-            </CardHeader>
-            
-            <CardContent className="pb-6">
-              <ul className="space-y-2">
-                {plan.benefits.map((benefit, index) => (
-                  <li key={index} className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-tacktix-blue mr-2 flex-shrink-0" />
-                    <span>{benefit}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            
-            <CardFooter>
-              <Button 
-                variant={plan.isPopular ? "default" : "outline"} 
-                className="w-full"
-                onClick={() => handleSelectPlan(plan)}
-                disabled={isCurrentPlan(plan.level)}
-              >
-                {isCurrentPlan(plan.level) ? "Current Plan" : "Subscribe Now"}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+    <div className="w-full space-y-6">
+      <div className="text-center space-y-2 max-w-md mx-auto">
+        <div className="flex justify-center">
+          <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-full">
+            <Sparkles className="h-6 w-6 text-white" />
+          </div>
+        </div>
+        
+        <h2 className="text-2xl font-bold">VIP Membership</h2>
+        <p className="text-gray-400">
+          Upgrade to VIP for exclusive benefits, reduced fees, and premium features.
+        </p>
       </div>
       
-      <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Subscribe to {selectedPlan?.name}</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are about to subscribe to the {selectedPlan?.name} plan for ₦{selectedPlan?.price.toLocaleString()} for {selectedPlan?.duration} month{selectedPlan?.duration && selectedPlan.duration > 1 ? 's' : ''}.
-              <div className="mt-4 p-3 bg-tacktix-dark-light rounded-md">
-                <div className="flex justify-between items-center mb-2">
-                  <span>Wallet Balance:</span>
-                  <span>₦{currentWalletBalance.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span>Plan Cost:</span>
-                  <span>₦{selectedPlan?.price.toLocaleString()}</span>
-                </div>
-                <div className="border-t border-white/10 my-2 pt-2 flex justify-between items-center font-medium">
-                  <span>Remaining Balance:</span>
-                  <span className={`${(currentWalletBalance - (selectedPlan?.price || 0)) < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                    ₦{(currentWalletBalance - (selectedPlan?.price || 0)).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              {(currentWalletBalance - (selectedPlan?.price || 0)) < 0 && (
-                <div className="mt-2 text-red-500 text-sm">
-                  Insufficient funds. Please add more funds to your wallet.
+      <RadioGroup value={selectedPlan} onValueChange={setSelectedPlan} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {plans.map((plan) => (
+          <Label
+            key={plan.id}
+            htmlFor={plan.id}
+            className={`cursor-pointer ${
+              selectedPlan === plan.id ? "ring-2 ring-tacktix-blue" : ""
+            }`}
+          >
+            <Card className={`h-full ${plan.isPopular ? "bg-gradient-to-b from-tacktix-dark-light to-tacktix-dark" : ""}`}>
+              {plan.isPopular && (
+                <div className="bg-yellow-500 text-tacktix-dark absolute right-4 top-0 text-xs font-bold px-2 py-0.5 rounded-b-md">
+                  MOST POPULAR
                 </div>
               )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleSubscribe();
-              }}
-              disabled={isProcessing || (currentWalletBalance - (selectedPlan?.price || 0)) < 0}
+              
+              <CardHeader>
+                <CardTitle>{plan.name}</CardTitle>
+                <CardDescription>
+                  <div className="flex items-end gap-1 mt-2">
+                    <span className="text-2xl font-bold text-tacktix-blue">₦{plan.price.toLocaleString()}</span>
+                    <span className="text-gray-400 text-sm mb-1">/ {plan.duration} month{plan.duration > 1 ? "s" : ""}</span>
+                  </div>
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <ul className="space-y-2">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+              
+              <CardFooter className="flex justify-between items-center pt-3">
+                <RadioGroupItem value={plan.id} id={plan.id} className="sr-only" />
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Clock className="h-3 w-3" />
+                  {plan.duration} Month{plan.duration > 1 ? "s" : ""}
+                </div>
+              </CardFooter>
+            </Card>
+          </Label>
+        ))}
+      </RadioGroup>
+      
+      <div className="flex flex-col md:flex-row gap-4 justify-center mt-8">
+        {isVIP ? (
+          <Button className="max-w-xs mx-auto" variant="outline" disabled>
+            <Star className="mr-2 h-4 w-4" />
+            Already a VIP Member
+          </Button>
+        ) : (
+          <>
+            <Button 
+              className="md:max-w-xs" 
+              onClick={handleSubscribe} 
+              disabled={isLoading}
             >
-              {isProcessing ? (
+              {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing...
                 </>
               ) : (
-                "Subscribe"
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Subscribe Now
+                </>
               )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="md:max-w-xs" 
+              onClick={handleAddFunds}
+            >
+              Add Funds to Wallet
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
   );
 };
 
