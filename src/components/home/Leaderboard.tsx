@@ -1,44 +1,48 @@
 
+import { useState, useEffect } from "react";
 import LeaderboardTable from "@/components/ui/LeaderboardTable";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 const Leaderboard = () => {
-  const topPlayers = [
-    {
-      position: 1,
-      name: "xSniperKing",
-      matches: 145,
-      winRate: "78%",
-      earnings: "₦125,750"
-    },
-    {
-      position: 2,
-      name: "DeadlyAssault",
-      matches: 132,
-      winRate: "72%",
-      earnings: "₦98,500"
-    },
-    {
-      position: 3,
-      name: "ShadowNinja",
-      matches: 128,
-      winRate: "69%",
-      earnings: "₦87,250"
-    },
-    {
-      position: 4,
-      name: "FragMaster",
-      matches: 115,
-      winRate: "65%",
-      earnings: "₦76,300"
-    },
-    {
-      position: 5,
-      name: "TacticalOps",
-      matches: 106,
-      winRate: "61%",
-      earnings: "₦64,800"
-    }
-  ];
+  const [topPlayers, setTopPlayers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLeaderboardData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('leaderboard_stats')
+          .select(`
+            *,
+            profiles:id(username, avatar_url)
+          `)
+          .order('total_earnings', { ascending: false })
+          .limit(5);
+
+        if (error) throw error;
+        
+        // Format data for LeaderboardTable
+        const formattedData = data.map((player, index) => ({
+          position: index + 1,
+          name: player.profiles?.username || "Unknown Player",
+          matches: player.matches_played,
+          winRate: player.matches_played > 0 
+            ? `${Math.round((player.matches_won / player.matches_played) * 100)}%` 
+            : "0%",
+          earnings: `₦${player.total_earnings.toFixed(2)}`
+        }));
+
+        setTopPlayers(formattedData);
+      } catch (error) {
+        console.error("Error fetching leaderboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaderboardData();
+  }, []);
 
   return (
     <section className="py-16">
@@ -50,7 +54,13 @@ const Leaderboard = () => {
           </p>
         </div>
         
-        <LeaderboardTable players={topPlayers} />
+        {loading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-tacktix-blue" />
+          </div>
+        ) : (
+          <LeaderboardTable players={topPlayers} />
+        )}
       </div>
     </section>
   );

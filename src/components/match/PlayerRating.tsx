@@ -1,11 +1,9 @@
 
 import { useState } from "react";
+import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThumbsUp, ThumbsDown, MessageCircle, Flag, User, ShieldAlert } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PlayerRatingProps {
@@ -13,19 +11,24 @@ interface PlayerRatingProps {
   playerId: string;
   matchId: string;
   playerAvatar?: string;
-  onClose?: () => void;
+  onRatingComplete: () => void;
 }
 
-const PlayerRating = ({ playerName, playerId, matchId, playerAvatar, onClose }: PlayerRatingProps) => {
+const PlayerRating = ({
+  playerName,
+  playerId,
+  matchId,
+  playerAvatar,
+  onRatingComplete
+}: PlayerRatingProps) => {
+  const [rating, setRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [comment, setComment] = useState<string>("");
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const { toast } = useToast();
-  const [rating, setRating] = useState<"positive" | "negative" | null>(null);
-  const [feedback, setFeedback] = useState("");
-  const [isReporting, setIsReporting] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!rating) {
+  
+  const handleRatingSubmit = async () => {
+    if (rating === 0) {
       toast({
         title: "Rating Required",
         description: "Please select a rating before submitting",
@@ -33,243 +36,124 @@ const PlayerRating = ({ playerName, playerId, matchId, playerAvatar, onClose }: 
       });
       return;
     }
-
-    setIsSubmitting(true);
+    
+    setSubmitting(true);
     
     try {
       // Get current user
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "You must be signed in to rate players",
-          variant: "destructive",
-        });
-        return;
+        throw new Error("You must be signed in to rate a player");
       }
       
-      // Add rating to database
+      // Submit rating
       const { error } = await supabase
         .from("user_ratings")
         .insert({
           rater_id: session.user.id,
           rated_id: playerId,
           match_id: matchId,
-          rating: rating === "positive" ? 1 : -1,
-          comment: feedback || null
+          rating: rating,
+          comment: comment.trim() || null
         });
-        
+      
       if (error) throw error;
       
       toast({
         title: "Rating Submitted",
-        description: "Thank you for rating your opponent!",
-        variant: "default",
+        description: "Thank you for rating your opponent",
       });
       
-      onClose?.();
+      // Inform parent component that rating is complete
+      onRatingComplete();
+      
     } catch (error: any) {
+      toast({
+        title: "Failed to Submit Rating",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
       console.error("Error submitting rating:", error);
-      toast({
-        title: "Submission Error",
-        description: error.message || "Failed to submit rating",
-        variant: "destructive",
-      });
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
-
-  const handleReport = async () => {
-    if (!reportReason) {
-      toast({
-        title: "Report Reason Required",
-        description: "Please provide a reason for your report",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
+  
+  const renderStar = (position: number) => {
+    const filled = (hoverRating || rating) >= position;
     
-    try {
-      // Get current user
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "You must be signed in to report players",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Add dispute to database
-      const { error } = await supabase
-        .from("disputes")
-        .insert({
-          match_id: matchId,
-          reported_by: session.user.id,
-          reason: reportReason
-        });
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Report Submitted",
-        description: "Our moderators will review your report soon",
-        variant: "default",
-      });
-      
-      setIsReporting(false);
-    } catch (error: any) {
-      console.error("Error submitting report:", error);
-      toast({
-        title: "Submission Error",
-        description: error.message || "Failed to submit report",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    return (
+      <Star
+        key={position}
+        size={32}
+        className={`cursor-pointer transition-colors ${
+          filled ? "text-yellow-400 fill-yellow-400" : "text-gray-400"
+        }`}
+        onClick={() => setRating(position)}
+        onMouseEnter={() => setHoverRating(position)}
+        onMouseLeave={() => setHoverRating(0)}
+      />
+    );
   };
-
+  
   return (
-    <Card className="glass-card border-white/10 max-w-md w-full mx-auto">
-      {!isReporting ? (
-        <>
-          <CardHeader className="text-center">
-            <CardTitle>Rate Your Opponent</CardTitle>
-            <CardDescription>
-              How was your experience playing against {playerName}?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex justify-center">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={playerAvatar} />
-                <AvatarFallback className="bg-tacktix-dark-light text-lg">
-                  {playerName ? playerName[0].toUpperCase() : <User />}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            
-            <div className="flex justify-center space-x-4">
-              <Button 
-                variant={rating === "positive" ? "gradient" : "outline"} 
-                size="lg"
-                className="flex flex-col items-center p-4 h-auto gap-2"
-                onClick={() => setRating("positive")}
-              >
-                <ThumbsUp size={24} />
-                <span>Positive</span>
-              </Button>
-              
-              <Button 
-                variant={rating === "negative" ? "destructive" : "outline"} 
-                size="lg"
-                className="flex flex-col items-center p-4 h-auto gap-2"
-                onClick={() => setRating("negative")}
-              >
-                <ThumbsDown size={24} />
-                <span>Negative</span>
-              </Button>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Additional Feedback (Optional)</label>
-              <Textarea 
-                placeholder="Share your thoughts about this player..."
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                className="bg-tacktix-dark-light resize-none"
-                rows={3}
-              />
-            </div>
-            
-            <Button 
-              variant="ghost" 
-              className="w-full text-tacktix-red flex items-center justify-center" 
-              onClick={() => setIsReporting(true)}
-            >
-              <Flag size={16} className="mr-2" />
-              Report this player
-            </Button>
-          </CardContent>
-          <CardFooter className="flex justify-between space-x-4">
-            <Button variant="outline" className="flex-1" onClick={onClose}>
-              Skip
-            </Button>
-            <Button 
-              variant="gradient" 
-              className="flex-1" 
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  Submitting...
-                </>
-              ) : (
-                'Submit Rating'
-              )}
-            </Button>
-          </CardFooter>
-        </>
-      ) : (
-        <>
-          <CardHeader className="text-center">
-            <CardTitle className="text-tacktix-red flex items-center justify-center">
-              <ShieldAlert className="mr-2" /> Report Player
-            </CardTitle>
-            <CardDescription>
-              Report inappropriate behavior by {playerName}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reason for Report</label>
-              <Textarea 
-                placeholder="Describe the issue in detail..."
-                value={reportReason}
-                onChange={(e) => setReportReason(e.target.value)}
-                className="bg-tacktix-dark-light resize-none"
-                rows={5}
-              />
-              <p className="text-xs text-gray-400">
-                Please provide specific details, including timestamps if applicable. 
-                Our moderation team will review your report.
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between space-x-4">
-            <Button 
-              variant="outline" 
-              className="flex-1" 
-              onClick={() => setIsReporting(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              className="flex-1" 
-              onClick={handleReport}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  Submitting...
-                </>
-              ) : (
-                'Submit Report'
-              )}
-            </Button>
-          </CardFooter>
-        </>
-      )}
-    </Card>
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <div className="h-14 w-14 rounded-full bg-tacktix-dark-light flex items-center justify-center overflow-hidden">
+          {playerAvatar ? (
+            <img src={playerAvatar} alt={playerName} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-lg font-medium">{playerName.charAt(0)}</span>
+          )}
+        </div>
+        <div>
+          <h3 className="text-lg font-medium">{playerName}</h3>
+          <p className="text-sm text-gray-400">Your opponent</p>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <label className="text-sm text-gray-400">How would you rate this player?</label>
+        <div className="flex space-x-2">
+          {[1, 2, 3, 4, 5].map(position => renderStar(position))}
+        </div>
+        <p className="text-sm text-gray-500">
+          {rating === 1 && "Poor experience"}
+          {rating === 2 && "Below average"}
+          {rating === 3 && "Average"}
+          {rating === 4 && "Good experience"}
+          {rating === 5 && "Excellent player"}
+        </p>
+      </div>
+      
+      <div className="space-y-2">
+        <label className="text-sm text-gray-400">Additional feedback (optional)</label>
+        <Textarea
+          placeholder="Share your experience with this player..."
+          className="bg-tacktix-dark-light resize-none"
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+        />
+      </div>
+      
+      <Button
+        className="w-full"
+        onClick={handleRatingSubmit}
+        disabled={rating === 0 || submitting}
+      >
+        {submitting ? (
+          <span className="flex items-center">
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Submitting...
+          </span>
+        ) : (
+          "Submit Rating"
+        )}
+      </Button>
+    </div>
   );
 };
 

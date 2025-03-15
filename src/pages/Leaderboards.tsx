@@ -1,309 +1,75 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import LeaderboardTable from "@/components/ui/LeaderboardTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search, Trophy, Award, TrendingUp, Gamepad, Target } from "lucide-react";
+import { Search, Trophy, Award, TrendingUp, Gamepad, Target, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface LeaderboardPlayer {
+  position: number;
+  name: string;
+  matches: number;
+  winRate: string;
+  earnings: string;
+}
 
 const Leaderboards = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [overallTopPlayers, setOverallTopPlayers] = useState<LeaderboardPlayer[]>([]);
+  const [sndChampions, setSndChampions] = useState<LeaderboardPlayer[]>([]);
+  const [hardpointKings, setHardpointKings] = useState<LeaderboardPlayer[]>([]);
+  const [brKillers, setBrKillers] = useState<LeaderboardPlayer[]>([]);
   
-  // Sample data for different leaderboard categories
-  const overallTopPlayers = [
-    {
-      position: 1,
-      name: "xSniperKing",
-      matches: 145,
-      winRate: "78%",
-      earnings: "₦125,750"
-    },
-    {
-      position: 2,
-      name: "DeadlyAssault",
-      matches: 132,
-      winRate: "72%",
-      earnings: "₦98,500"
-    },
-    {
-      position: 3,
-      name: "ShadowNinja",
-      matches: 128,
-      winRate: "69%",
-      earnings: "₦87,250"
-    },
-    {
-      position: 4,
-      name: "FragMaster",
-      matches: 115,
-      winRate: "65%",
-      earnings: "₦76,300"
-    },
-    {
-      position: 5,
-      name: "TacticalOps",
-      matches: 106,
-      winRate: "61%",
-      earnings: "₦64,800"
-    },
-    {
-      position: 6,
-      name: "StealthKiller",
-      matches: 98,
-      winRate: "58%",
-      earnings: "₦57,200"
-    },
-    {
-      position: 7,
-      name: "SharpShooter",
-      matches: 94,
-      winRate: "56%",
-      earnings: "₦52,600"
-    },
-    {
-      position: 8,
-      name: "EliteSniper",
-      matches: 89,
-      winRate: "53%",
-      earnings: "₦48,950"
-    },
-    {
-      position: 9,
-      name: "GhostRecon",
-      matches: 83,
-      winRate: "51%",
-      earnings: "₦43,700"
-    },
-    {
-      position: 10,
-      name: "SilentAssassin",
-      matches: 78,
-      winRate: "49%",
-      earnings: "₦40,200"
-    }
-  ];
-  
-  const sndChampions = [
-    {
-      position: 1,
-      name: "xSniperKing",
-      matches: 87,
-      winRate: "82%",
-      earnings: "₦76,450"
-    },
-    {
-      position: 2,
-      name: "BombExpert",
-      matches: 72,
-      winRate: "78%",
-      earnings: "₦63,200"
-    },
-    {
-      position: 3,
-      name: "LastManStanding",
-      matches: 65,
-      winRate: "76%",
-      earnings: "₦57,900"
-    },
-    {
-      position: 4,
-      name: "ClutchMaster",
-      matches: 61,
-      winRate: "71%",
-      earnings: "₦48,350"
-    },
-    {
-      position: 5,
-      name: "ShadowStep",
-      matches: 58,
-      winRate: "68%",
-      earnings: "₦42,700"
-    },
-    {
-      position: 6,
-      name: "SilentDefuse",
-      matches: 52,
-      winRate: "65%",
-      earnings: "₦37,800"
-    },
-    {
-      position: 7,
-      name: "SteelNerve",
-      matches: 49,
-      winRate: "63%",
-      earnings: "₦35,200"
-    },
-    {
-      position: 8,
-      name: "GhostPlanter",
-      matches: 45,
-      winRate: "61%",
-      earnings: "₦32,100"
-    },
-    {
-      position: 9,
-      name: "DeadlyRotation",
-      matches: 42,
-      winRate: "59%",
-      earnings: "₦29,800"
-    },
-    {
-      position: 10,
-      name: "SiteHolder",
-      matches: 39,
-      winRate: "58%",
-      earnings: "₦27,500"
-    }
-  ];
-  
-  const hardpointKings = [
-    {
-      position: 1,
-      name: "ObjectiveMaster",
-      matches: 79,
-      winRate: "80%",
-      earnings: "₦68,200"
-    },
-    {
-      position: 2,
-      name: "HillDefender",
-      matches: 67,
-      winRate: "76%",
-      earnings: "₦59,750"
-    },
-    {
-      position: 3,
-      name: "PointSecurer",
-      matches: 63,
-      winRate: "74%",
-      earnings: "₦56,800"
-    },
-    {
-      position: 4,
-      name: "TimeKeeper",
-      matches: 59,
-      winRate: "71%",
-      earnings: "₦51,200"
-    },
-    {
-      position: 5,
-      name: "RotationKing",
-      matches: 54,
-      winRate: "68%",
-      earnings: "₦45,300"
-    },
-    {
-      position: 6,
-      name: "AnchorPlayer",
-      matches: 51,
-      winRate: "65%",
-      earnings: "₦39,600"
-    },
-    {
-      position: 7,
-      name: "HillHunter",
-      matches: 47,
-      winRate: "62%",
-      earnings: "₦36,200"
-    },
-    {
-      position: 8,
-      name: "ZoneController",
-      matches: 43,
-      winRate: "60%",
-      earnings: "₦32,800"
-    },
-    {
-      position: 9,
-      name: "ClockRunner",
-      matches: 39,
-      winRate: "57%",
-      earnings: "₦28,900"
-    },
-    {
-      position: 10,
-      name: "ScrapFighter",
-      matches: 36,
-      winRate: "55%",
-      earnings: "₦25,700"
-    }
-  ];
-  
-  const brKillers = [
-    {
-      position: 1,
-      name: "BattleRoyale",
-      matches: 92,
-      winRate: "32%",
-      earnings: "₦87,600"
-    },
-    {
-      position: 2,
-      name: "LastSurvivor",
-      matches: 84,
-      winRate: "28%",
-      earnings: "₦74,300"
-    },
-    {
-      position: 3,
-      name: "ZoneRunner",
-      matches: 77,
-      winRate: "25%",
-      earnings: "₦65,800"
-    },
-    {
-      position: 4,
-      name: "AirDropHunter",
-      matches: 72,
-      winRate: "24%",
-      earnings: "₦61,200"
-    },
-    {
-      position: 5,
-      name: "SoloSquadKing",
-      matches: 68,
-      winRate: "23%",
-      earnings: "₦57,900"
-    },
-    {
-      position: 6,
-      name: "HighKill",
-      matches: 63,
-      winRate: "22%",
-      earnings: "₦52,400"
-    },
-    {
-      position: 7,
-      name: "SafeZonePro",
-      matches: 59,
-      winRate: "20%",
-      earnings: "₦48,300"
-    },
-    {
-      position: 8,
-      name: "LootMaster",
-      matches: 54,
-      winRate: "19%",
-      earnings: "₦44,700"
-    },
-    {
-      position: 9,
-      name: "ChopperPilot",
-      matches: 51,
-      winRate: "18%",
-      earnings: "₦41,200"
-    },
-    {
-      position: 10,
-      name: "AlcatrazWinner",
-      matches: 47,
-      winRate: "17%",
-      earnings: "₦38,600"
-    }
-  ];
+  useEffect(() => {
+    const fetchLeaderboardData = async () => {
+      setLoading(true);
+      try {
+        // Fetch overall leaderboard
+        const { data: overallData, error: overallError } = await supabase
+          .from('leaderboard_stats')
+          .select(`
+            *,
+            profiles:id(username, avatar_url)
+          `)
+          .order('total_earnings', { ascending: false })
+          .limit(10);
+
+        if (overallError) throw overallError;
+        
+        // Format data
+        const formattedOverallData = overallData.map((player, index) => ({
+          position: index + 1,
+          name: player.profiles?.username || "Unknown Player",
+          matches: player.matches_played,
+          winRate: player.matches_played > 0 
+            ? `${Math.round((player.matches_won / player.matches_played) * 100)}%` 
+            : "0%",
+          earnings: `₦${player.total_earnings.toFixed(2)}`
+        }));
+        
+        setOverallTopPlayers(formattedOverallData);
+        
+        // For demo purposes, we'll use the same data for other tabs
+        // In a real implementation, you would filter by game mode
+        // assuming we have that data in the database
+        setSndChampions(formattedOverallData.slice(0, 7));
+        setHardpointKings(formattedOverallData.slice(2, 9));
+        setBrKillers(formattedOverallData.slice(1, 8));
+      } catch (error) {
+        console.error("Error fetching leaderboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaderboardData();
+  }, []);
 
   // Filter players based on search query
-  const filterPlayers = (players) => {
+  const filterPlayers = (players: LeaderboardPlayer[]) => {
     if (!searchQuery) return players;
     return players.filter(player => 
       player.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -333,84 +99,90 @@ const Leaderboards = () => {
           </div>
           
           <div className="glass-card rounded-xl overflow-hidden">
-            <Tabs defaultValue="overall">
-              <div className="p-4 border-b border-white/10">
-                <TabsList className="grid grid-cols-2 md:grid-cols-4">
-                  <TabsTrigger value="overall" className="flex items-center">
-                    <Trophy size={16} className="mr-2" />
-                    <span className="hidden md:inline">Overall</span>
-                    <span className="md:hidden">All</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="snd" className="flex items-center">
-                    <Target size={16} className="mr-2" />
-                    <span className="hidden md:inline">Search & Destroy</span>
-                    <span className="md:hidden">S&D</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="hardpoint" className="flex items-center">
-                    <Award size={16} className="mr-2" />
-                    <span className="hidden md:inline">Hardpoint</span>
-                    <span className="md:hidden">HP</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="br" className="flex items-center">
-                    <Gamepad size={16} className="mr-2" />
-                    <span className="hidden md:inline">Battle Royale</span>
-                    <span className="md:hidden">BR</span>
-                  </TabsTrigger>
-                </TabsList>
+            {loading ? (
+              <div className="flex justify-center items-center p-16">
+                <Loader2 className="h-10 w-10 animate-spin text-tacktix-blue" />
               </div>
-              
-              <TabsContent value="overall" className="m-0">
-                <div className="p-5">
-                  <div className="flex items-center mb-4">
-                    <TrendingUp size={18} className="text-tacktix-blue mr-2" />
-                    <h3 className="text-lg font-semibold">Top Overall Earners</h3>
-                  </div>
-                  <LeaderboardTable 
-                    players={filterPlayers(overallTopPlayers)} 
-                    title="" 
-                  />
+            ) : (
+              <Tabs defaultValue="overall">
+                <div className="p-4 border-b border-white/10">
+                  <TabsList className="grid grid-cols-2 md:grid-cols-4">
+                    <TabsTrigger value="overall" className="flex items-center">
+                      <Trophy size={16} className="mr-2" />
+                      <span className="hidden md:inline">Overall</span>
+                      <span className="md:hidden">All</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="snd" className="flex items-center">
+                      <Target size={16} className="mr-2" />
+                      <span className="hidden md:inline">Search & Destroy</span>
+                      <span className="md:hidden">S&D</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="hardpoint" className="flex items-center">
+                      <Award size={16} className="mr-2" />
+                      <span className="hidden md:inline">Hardpoint</span>
+                      <span className="md:hidden">HP</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="br" className="flex items-center">
+                      <Gamepad size={16} className="mr-2" />
+                      <span className="hidden md:inline">Battle Royale</span>
+                      <span className="md:hidden">BR</span>
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="snd" className="m-0">
-                <div className="p-5">
-                  <div className="flex items-center mb-4">
-                    <Target size={18} className="text-tacktix-blue mr-2" />
-                    <h3 className="text-lg font-semibold">Search & Destroy Champions</h3>
+                
+                <TabsContent value="overall" className="m-0">
+                  <div className="p-5">
+                    <div className="flex items-center mb-4">
+                      <TrendingUp size={18} className="text-tacktix-blue mr-2" />
+                      <h3 className="text-lg font-semibold">Top Overall Earners</h3>
+                    </div>
+                    <LeaderboardTable 
+                      players={filterPlayers(overallTopPlayers)} 
+                      title="" 
+                    />
                   </div>
-                  <LeaderboardTable 
-                    players={filterPlayers(sndChampions)} 
-                    title="" 
-                  />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="hardpoint" className="m-0">
-                <div className="p-5">
-                  <div className="flex items-center mb-4">
-                    <Award size={18} className="text-tacktix-blue mr-2" />
-                    <h3 className="text-lg font-semibold">Hardpoint Kings</h3>
+                </TabsContent>
+                
+                <TabsContent value="snd" className="m-0">
+                  <div className="p-5">
+                    <div className="flex items-center mb-4">
+                      <Target size={18} className="text-tacktix-blue mr-2" />
+                      <h3 className="text-lg font-semibold">Search & Destroy Champions</h3>
+                    </div>
+                    <LeaderboardTable 
+                      players={filterPlayers(sndChampions)} 
+                      title="" 
+                    />
                   </div>
-                  <LeaderboardTable 
-                    players={filterPlayers(hardpointKings)} 
-                    title="" 
-                  />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="br" className="m-0">
-                <div className="p-5">
-                  <div className="flex items-center mb-4">
-                    <Gamepad size={18} className="text-tacktix-blue mr-2" />
-                    <h3 className="text-lg font-semibold">Battle Royale Top Players</h3>
+                </TabsContent>
+                
+                <TabsContent value="hardpoint" className="m-0">
+                  <div className="p-5">
+                    <div className="flex items-center mb-4">
+                      <Award size={18} className="text-tacktix-blue mr-2" />
+                      <h3 className="text-lg font-semibold">Hardpoint Kings</h3>
+                    </div>
+                    <LeaderboardTable 
+                      players={filterPlayers(hardpointKings)} 
+                      title="" 
+                    />
                   </div>
-                  <LeaderboardTable 
-                    players={filterPlayers(brKillers)} 
-                    title="" 
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
+                </TabsContent>
+                
+                <TabsContent value="br" className="m-0">
+                  <div className="p-5">
+                    <div className="flex items-center mb-4">
+                      <Gamepad size={18} className="text-tacktix-blue mr-2" />
+                      <h3 className="text-lg font-semibold">Battle Royale Top Players</h3>
+                    </div>
+                    <LeaderboardTable 
+                      players={filterPlayers(brKillers)} 
+                      title="" 
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
           
           <div className="mt-8 glass-card rounded-xl p-6">

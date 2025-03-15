@@ -10,7 +10,6 @@ import { CheckCircle, Upload, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 // Add the prop types to match what's being passed in MatchDetails.tsx
-
 interface MatchEvidenceProps {
   matchId: string;
   currentUserId?: string; // Make this optional since it might not always be passed

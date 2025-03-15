@@ -153,8 +153,8 @@ const MatchDetails = () => {
         .insert({
           wallet_id: walletData.id,
           amount: match.bet_amount,
+          type: "bet", // Add the required type field
           transaction_type: "match_join",
-          type: "bet", // Adding the required type field
           status: "completed",
           details: JSON.stringify({ match_id: id })
         });
@@ -558,54 +558,58 @@ const MatchDetails = () => {
               </CardContent>
             </Card>
             
-            {isCompletedMatch && isParticipant && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <ThumbsUp className="h-5 w-5 mr-2 text-green-500" />
-                    Rate Your Opponent
-                  </CardTitle>
-                  <CardDescription>How was your experience with this player?</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {hasRated ? (
-                    <div className="text-center py-4">
-                      <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                      <p className="text-lg font-medium">Thanks for your rating!</p>
-                      <p className="text-gray-400">You've already rated your opponent for this match.</p>
-                    </div>
-                  ) : (
-                    <PlayerRating 
-                      playerName={isHost ? match.opponent.username : match.host.username}
-                      playerId={isHost ? match.opponent.id : match.host.id}
-                      matchId={match.id}
-                      playerAvatar={isHost ? match.opponent.avatar_url : match.host.avatar_url}
-                      onClose={() => setHasRated(true)}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            
           </div>
           
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2 text-tacktix-blue" />
-                  Match Evidence
-                </CardTitle>
-                <CardDescription>Upload screenshots as evidence</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <MatchEvidence 
-                  matchId={match.id}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+          
+        
+      {isCompletedMatch && isParticipant && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ThumbsUp className="h-5 w-5 mr-2 text-green-500" />
+              Rate Your Opponent
+            </CardTitle>
+            <CardDescription>How was your experience with this player?</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hasRated ? (
+              <div className="text-center py-4">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <p className="text-lg font-medium">Thanks for your rating!</p>
+                <p className="text-gray-400">You've already rated your opponent for this match.</p>
+              </div>
+            ) : (
+              <PlayerRating 
+                playerName={isHost ? match.opponent.username : match.host.username}
+                playerId={isHost ? match.opponent.id : match.host.id}
+                matchId={match.id}
+                playerAvatar={isHost ? match.opponent.avatar_url : match.host.avatar_url}
+                onRatingComplete={() => setHasRated(true)}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <MessageSquare className="h-5 w-5 mr-2 text-tacktix-blue" />
+            Match Evidence
+          </CardTitle>
+          <CardDescription>Upload screenshots as evidence</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MatchEvidence 
+            matchId={match.id}
+            currentUserId={currentUser?.id}
+            matchStatus={match.status}
+          />
+        </CardContent>
+      </Card>
+    
+        
       
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
         <DialogContent>
