@@ -647,6 +647,8 @@ const Matchmaking = () => {
             </div>
           </TabsContent>
           
+          
+          
           <TabsContent value="create">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="glass-card">
@@ -814,4 +816,4 @@ const Matchmaking = () => {
                         <div>
                           <div className="text-sm text-gray-400 mb-2">Match Rules</div>
                           <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">
-                            <p>• Standard {activeGameMode?.name || "game"} rules apply
+                            <p>• Standard {activeGameMode?.name || "game"} rules
