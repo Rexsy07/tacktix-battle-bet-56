@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,13 +51,13 @@ const DisputeDetails = ({ disputeId, onClose, onResolved }: DisputeDetailsProps)
       
       setDispute(disputeData);
       
-      // Fetch match details with proper column hints
+      // Fetch match details with proper column hints for the relationships
       const { data: matchData, error: matchError } = await supabase
         .from("matches")
         .select(`
           *,
-          host:host_id(id, username, avatar_url),
-          opponent:opponent_id(id, username, avatar_url)
+          host:profiles!matches_host_id_fkey(id, username, avatar_url),
+          opponent:profiles!matches_opponent_id_fkey(id, username, avatar_url)
         `)
         .eq("id", disputeData.match_id)
         .single();
@@ -159,14 +158,16 @@ const DisputeDetails = ({ disputeId, onClose, onResolved }: DisputeDetailsProps)
       }
       
       // Log admin notes as JSON
+      const modActionData = JSON.stringify({
+        moderator_id: session.user.id,
+        action: resolutionAction,
+        notes: adminNotes
+      });
+      
       const { error: logError } = await supabase
         .from("disputes")
         .update({
-          admin_notes: JSON.stringify({
-            moderator_id: session.user.id,
-            action: resolutionAction,
-            notes: adminNotes
-          })
+          admin_notes: modActionData
         })
         .eq("id", disputeId);
       

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -64,8 +63,8 @@ const MatchDetails = () => {
         .from("matches")
         .select(`
           *,
-          host:host_id(id, username, avatar_url),
-          opponent:opponent_id(id, username, avatar_url)
+          host:profiles!matches_host_id_fkey(id, username, avatar_url),
+          opponent:profiles!matches_opponent_id_fkey(id, username, avatar_url)
         `)
         .eq("id", id)
         .single();
@@ -155,6 +154,7 @@ const MatchDetails = () => {
           wallet_id: walletData.id,
           amount: match.bet_amount,
           transaction_type: "match_join",
+          type: "bet", // Adding the required type field
           status: "completed",
           details: JSON.stringify({ match_id: id })
         });
@@ -576,10 +576,11 @@ const MatchDetails = () => {
                     </div>
                   ) : (
                     <PlayerRating 
-                      matchId={match.id} 
-                      opponentId={isHost ? match.opponent.id : match.host.id}
-                      opponentName={isHost ? match.opponent.username : match.host.username}
-                      onRatingComplete={() => setHasRated(true)}
+                      playerName={isHost ? match.opponent.username : match.host.username}
+                      playerId={isHost ? match.opponent.id : match.host.id}
+                      matchId={match.id}
+                      playerAvatar={isHost ? match.opponent.avatar_url : match.host.avatar_url}
+                      onClose={() => setHasRated(true)}
                     />
                   )}
                 </CardContent>
@@ -599,8 +600,6 @@ const MatchDetails = () => {
               <CardContent>
                 <MatchEvidence 
                   matchId={match.id}
-                  currentUserId={currentUser?.id}
-                  matchStatus={match.status}
                 />
               </CardContent>
             </Card>

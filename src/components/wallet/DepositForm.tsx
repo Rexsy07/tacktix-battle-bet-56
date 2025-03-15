@@ -49,6 +49,7 @@ const DepositForm = () => {
           wallet_id: walletData.id,
           amount: depositAmount,
           transaction_type: "deposit",
+          type: "deposit", // Adding the required type field
           status: "completed", // In a real app, this would be "pending" until payment is confirmed
           payment_method: paymentMethod,
           details: JSON.stringify({ method: paymentMethod })

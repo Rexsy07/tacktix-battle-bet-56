@@ -54,6 +54,7 @@ const WithdrawForm = ({ currentBalance }: { currentBalance: number }) => {
           wallet_id: walletData.id,
           amount: withdrawAmount,
           transaction_type: "withdrawal",
+          type: "withdrawal", // Adding the required type field
           status: "pending", // Withdrawals usually need approval
           payment_method: "bank_transfer",
           details: JSON.stringify({ 
