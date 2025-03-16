@@ -15,13 +15,16 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlayerRating from "@/components/match/PlayerRating";
 import MatchEvidence from "@/components/match/MatchEvidence";
+import MatchResultForm from "@/components/match/MatchResultForm";
+import MatchResultDisplay from "@/components/match/MatchResultDisplay";
 import { supabase } from "@/integrations/supabase/client";
 import { getMatchStatusVariant, getStatusText } from "@/utils/matchmaking-helpers";
+import { getMatchResult } from "@/utils/match-results-utils";
 import { 
   Swords, Trophy, Clock, Flag, ClipboardCheck, User, Info, 
   AlertTriangle, ArrowRight, CheckCircle, XCircle, 
   Copy, ThumbsUp, MessageSquare, Shield, Loader2, CreditCard,
-  Play, FileCheck, Upload
+  Play, FileCheck
 } from "lucide-react";
 
 const MatchDetails = () => {
@@ -38,10 +41,6 @@ const MatchDetails = () => {
   const [hasRated, setHasRated] = useState(false);
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
   const [isStartingMatch, setIsStartingMatch] = useState(false);
-  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
-  const [proofImages, setProofImages] = useState<File[]>([]);
-  const [proofNotes, setProofNotes] = useState("");
-  const [resultType, setResultType] = useState<"win" | "loss" | "draw" | "dispute">("win");
   const [isProofDialogOpen, setIsProofDialogOpen] = useState(false);
   const [matchResult, setMatchResult] = useState<any>(null);
   const [isLoadingResult, setIsLoadingResult] = useState(false);
@@ -98,15 +97,10 @@ const MatchDetails = () => {
       
       // Check if match has results
       setIsLoadingResult(true);
-      const { data: resultData, error: resultError } = await supabase
-        .from("match_results")
-        .select("*")
-        .eq("match_id", matchId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-        
-      if (!resultError && resultData && resultData.length > 0) {
-        setMatchResult(resultData[0]);
+      const { success, data } = await getMatchResult(matchId!);
+      
+      if (success && data) {
+        setMatchResult(data);
       }
       setIsLoadingResult(false);
       
@@ -330,185 +324,12 @@ const MatchDetails = () => {
     }
   };
   
-  const handleSubmitResult = async (isWin: boolean) => {
-    if (!currentUser) return;
-    
-    setIsSubmittingResult(true);
-    try {
-      // Update match with winner
-      const { error: updateError } = await supabase
-        .from("matches")
-        .update({
-          winner_id: isWin ? currentUser.id : match.opponent_id || match.host_id,
-          status: "completed",
-          result_submitted_by: currentUser.id,
-          result_submitted_at: new Date().toISOString()
-        })
-        .eq("id", matchId);
-      
-      if (updateError) throw updateError;
-      
-      // If marked as win, process the payout
-      if (isWin) {
-        try {
-          const { error: rpcError } = await supabase.rpc(
-            "process_match_outcome",
-            {
-              match_id: matchId,
-              winner_id: currentUser.id
-            }
-          );
-          
-          if (rpcError) throw rpcError;
-        } catch (error) {
-          console.error("Error processing match outcome:", error);
-          // Continue execution even if RPC fails
-        }
-      }
-      
-      toast({
-        title: "Result Submitted",
-        description: "Match result has been updated",
-      });
-      
-      // Refresh match details
-      fetchMatchDetails();
-      
-    } catch (error: any) {
-      toast({
-        title: "Failed to Submit Result",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmittingResult(false);
-    }
-  };
-  
-  const handleSubmitProof = async () => {
-    if (!currentUser || !match) return;
-    
-    if (proofImages.length === 0) {
-      toast({
-        title: "Proof Required",
-        description: "Please upload at least one screenshot as proof",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsSubmittingProof(true);
-    try {
-      // Upload proof images to storage
-      const proofUrls: string[] = [];
-      for (const file of proofImages) {
-        const fileName = `${matchId}/${currentUser.id}/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage
-          .from("match-evidence")
-          .upload(fileName, file);
-          
-        if (error) throw error;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from("match-evidence")
-          .getPublicUrl(fileName);
-          
-        proofUrls.push(publicUrl);
-      }
-      
-      // Determine winner based on result type
-      let winnerId = null;
-      if (resultType === "win") {
-        winnerId = currentUser.id;
-      } else if (resultType === "loss") {
-        winnerId = currentUser.id === match.host_id ? match.opponent_id : match.host_id;
-      }
-      
-      // Create match result
-      const { data: resultData, error: resultError } = await supabase
-        .from("match_results")
-        .insert({
-          match_id: matchId,
-          submitted_by: currentUser.id,
-          winner_id: winnerId,
-          result_type: resultType,
-          proof_urls: proofUrls,
-          notes: proofNotes
-        })
-        .select()
-        .single();
-        
-      if (resultError) throw resultError;
-      
-      // Update match status
-      const { error: matchError } = await supabase
-        .from("matches")
-        .update({
-          result_submitted_by: currentUser.id,
-          result_submitted_at: new Date().toISOString(),
-          status: resultType === "dispute" ? "disputed" : "completed",
-          winner_id: winnerId
-        })
-        .eq("id", matchId);
-        
-      if (matchError) throw matchError;
-      
-      // If winner is determined and not disputed, process payout
-      if (winnerId && resultType !== "dispute") {
-        try {
-          const { error: rpcError } = await supabase.rpc(
-            "process_match_outcome",
-            {
-              match_id: matchId,
-              winner_id: winnerId
-            }
-          );
-          
-          if (rpcError) throw rpcError;
-        } catch (error) {
-          console.error("Error processing match outcome:", error);
-          // Continue execution even if RPC fails
-        }
-      }
-      
-      toast({
-        title: "Proof Submitted",
-        description: "Your proof has been submitted for review",
-      });
-      
-      setProofImages([]);
-      setProofNotes("");
-      setIsProofDialogOpen(false);
-      fetchMatchDetails();
-      
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to submit proof",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmittingProof(false);
-    }
-  };
-  
   const copyLobbyCode = () => {
     navigator.clipboard.writeText(match?.lobby_code || "");
     toast({
       title: "Copied!",
       description: "Lobby code copied to clipboard",
     });
-  };
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setProofImages([...proofImages, ...filesArray]);
-    }
-  };
-  
-  const removeProofImage = (index: number) => {
-    setProofImages(proofImages.filter((_, i) => i !== index));
   };
   
   if (isLoading) {
@@ -780,7 +601,7 @@ const MatchDetails = () => {
                           onClick={() => setIsProofDialogOpen(true)}
                         >
                           <FileCheck className="h-4 w-4 mr-2" />
-                          Submit Match Proof
+                          Submit Match Result
                         </Button>
                         
                         <Button 
@@ -811,106 +632,50 @@ const MatchDetails = () => {
                   <div className="flex justify-center items-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                   </div>
-                ) : matchResult ? (
-                  <div className="space-y-6">
-                    <div className="p-4 rounded-lg bg-tacktix-dark-light">
-                      <h3 className="text-lg font-medium mb-4">
-                        Match Result: {matchResult.result_type.charAt(0).toUpperCase() + matchResult.result_type.slice(1)}
-                      </h3>
-                      
-                      {matchResult.winner_id && (
-                        <div className="flex items-center mb-4">
-                          <Trophy className="h-5 w-5 text-yellow-500 mr-2" />
-                          <span className="font-medium">
-                            Winner: {
-                              matchResult.winner_id === match.host.id 
-                                ? match.host.username 
-                                : match.opponent?.username || "Unknown"
-                            }
-                          </span>
-                        </div>
-                      )}
-                      
-                      {matchResult.notes && (
-                        <div className="mt-2 mb-4">
-                          <h4 className="text-sm font-medium text-gray-400 mb-1">Notes:</h4>
-                          <p className="text-sm bg-tacktix-dark p-3 rounded">{matchResult.notes}</p>
-                        </div>
-                      )}
-                      
-                      {matchResult.proof_urls && matchResult.proof_urls.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">Evidence:</h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {matchResult.proof_urls.map((url: string, index: number) => (
-                              <a 
-                                key={index} 
-                                href={url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="block"
-                              >
-                                <img 
-                                  src={url} 
-                                  alt={`Match evidence ${index + 1}`} 
-                                  className="rounded border border-gray-700 w-full object-cover h-24"
-                                />
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="mt-4 text-xs text-gray-500">
-                        Submitted by {
-                          matchResult.submitted_by === match.host.id 
-                            ? match.host.username 
-                            : match.opponent?.username || "Unknown"
-                        } on {new Date(matchResult.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                    
-                    {match.result_verified && (
-                      <div className="flex items-center p-3 rounded bg-green-900/20 border border-green-800/30">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                        <span>This result has been verified by a moderator</span>
-                      </div>
-                    )}
-                  </div>
-                ) : isActiveMatch ? (
-                  <div className="text-center py-8">
-                    <Clock className="h-12 w-12 mx-auto text-tacktix-blue/50 mb-3" />
-                    <h3 className="text-xl font-medium">Match In Progress</h3>
-                    <p className="text-gray-400 mt-1">
-                      Results will be available once the match is completed.
-                    </p>
-                    
-                    {isParticipant && (
-                      <Button 
-                        className="mt-4"
-                        onClick={() => setIsProofDialogOpen(true)}
-                      >
-                        <FileCheck className="mr-2 h-4 w-4" />
-                        Submit Match Result
-                      </Button>
-                    )}
-                  </div>
-                ) : isPendingMatch ? (
-                  <div className="text-center py-8">
-                    <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500/50 mb-3" />
-                    <h3 className="text-xl font-medium">Match Not Started</h3>
-                    <p className="text-gray-400 mt-1">
-                      The match hasn't started yet. Results will be available after completion.
-                    </p>
-                  </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <Info className="h-12 w-12 mx-auto text-gray-500/50 mb-3" />
-                    <h3 className="text-xl font-medium">No Results Submitted</h3>
-                    <p className="text-gray-400 mt-1">
-                      No match results have been submitted yet.
-                    </p>
-                  </div>
+                  <>
+                    {matchResult ? (
+                      <MatchResultDisplay 
+                        matchId={match.id}
+                        hostId={match.host.id}
+                        opponentId={match.opponent?.id}
+                      />
+                    ) : isActiveMatch ? (
+                      <div className="text-center py-8">
+                        <Clock className="h-12 w-12 mx-auto text-tacktix-blue/50 mb-3" />
+                        <h3 className="text-xl font-medium">Match In Progress</h3>
+                        <p className="text-gray-400 mt-1">
+                          Results will be available once the match is completed.
+                        </p>
+                        
+                        {isParticipant && (
+                          <Button 
+                            className="mt-4"
+                            onClick={() => setIsProofDialogOpen(true)}
+                          >
+                            <FileCheck className="mr-2 h-4 w-4" />
+                            Submit Match Result
+                          </Button>
+                        )}
+                      </div>
+                    ) : isPendingMatch ? (
+                      <div className="text-center py-8">
+                        <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500/50 mb-3" />
+                        <h3 className="text-xl font-medium">Match Not Started</h3>
+                        <p className="text-gray-400 mt-1">
+                          The match hasn't started yet. Results will be available after completion.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Info className="h-12 w-12 mx-auto text-gray-500/50 mb-3" />
+                        <h3 className="text-xl font-medium">No Results Submitted</h3>
+                        <p className="text-gray-400 mt-1">
+                          No match results have been submitted yet.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -967,8 +732,8 @@ const MatchDetails = () => {
                       onClick={() => setIsProofDialogOpen(true)}
                       className="w-full"
                     >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Submit New Evidence
+                      <FileCheck className="mr-2 h-4 w-4" />
+                      Submit Match Result with Evidence
                     </Button>
                   </div>
                 )}
@@ -1033,149 +798,23 @@ const MatchDetails = () => {
       <Dialog open={isProofDialogOpen} onOpenChange={setIsProofDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle>Submit Match Proof</DialogTitle>
+            <DialogTitle>Submit Match Result</DialogTitle>
             <DialogDescription>
               Upload screenshots and declare the result of your match
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="result-type">Match Result</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={resultType === "win" ? "default" : "outline"}
-                  onClick={() => setResultType("win")}
-                  className="w-full"
-                >
-                  <Trophy className="mr-2 h-4 w-4 text-yellow-500" />
-                  I Won
-                </Button>
-                <Button
-                  type="button"
-                  variant={resultType === "loss" ? "default" : "outline"}
-                  onClick={() => setResultType("loss")}
-                  className="w-full"
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  I Lost
-                </Button>
-                <Button
-                  type="button"
-                  variant={resultType === "draw" ? "default" : "outline"}
-                  onClick={() => setResultType("draw")}
-                  className="w-full"
-                >
-                  <Swords className="mr-2 h-4 w-4" />
-                  Draw
-                </Button>
-                <Button
-                  type="button"
-                  variant={resultType === "dispute" ? "destructive" : "outline"}
-                  onClick={() => setResultType("dispute")}
-                  className="w-full"
-                >
-                  <Flag className="mr-2 h-4 w-4" />
-                  Dispute
-                </Button>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="screenshot-upload">Upload Screenshots</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-sm"
-                >
-                  <Upload className="mr-1 h-3 w-3" />
-                  Add Images
-                </Button>
-              </div>
-              
-              <input
-                type="file"
-                id="screenshot-upload"
-                className="hidden"
-                accept="image/*"
-                multiple
-                ref={fileInputRef}
-                onChange={handleFileChange}
-              />
-              
-              {proofImages.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {proofImages.map((file, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={`Proof ${index + 1}`}
-                        className="h-20 w-full object-cover rounded border border-gray-700"
-                      />
-                      <button
-                        type="button"
-                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeProofImage(index)}
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div 
-                  className="border-2 border-dashed border-gray-700 rounded-md p-6 text-center cursor-pointer hover:bg-tacktix-dark-light/30 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mx-auto h-8 w-8 text-gray-500 mb-2" />
-                  <p className="text-sm text-gray-400">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    PNG, JPG, or JPEG (Max 5MB each)
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="proof-notes">Additional Notes</Label>
-              <Textarea
-                id="proof-notes"
-                placeholder="Add any additional information about the match..."
-                value={proofNotes}
-                onChange={(e) => setProofNotes(e.target.value)}
-                className="bg-tacktix-dark-deeper border-tacktix-dark-light"
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsProofDialogOpen(false)}
-              disabled={isSubmittingProof}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitProof}
-              disabled={isSubmittingProof || proofImages.length === 0}
-            >
-              {isSubmittingProof ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                "Submit Proof"
-              )}
-            </Button>
-          </DialogFooter>
+          <MatchResultForm
+            matchId={match.id}
+            currentUserId={currentUser?.id}
+            hostId={match.host.id}
+            opponentId={match.opponent?.id}
+            onSuccess={() => {
+              setIsProofDialogOpen(false);
+              fetchMatchDetails();
+            }}
+            onCancel={() => setIsProofDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </Layout>

@@ -137,6 +137,64 @@ export type Database = {
           },
         ]
       }
+      match_results: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          notes: string | null
+          proof_urls: string[]
+          result_type: string
+          submitted_by: string
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          notes?: string | null
+          proof_urls?: string[]
+          result_type: string
+          submitted_by: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          notes?: string | null
+          proof_urls?: string[]
+          result_type?: string
+          submitted_by?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_results_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_results_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_results_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           bet_amount: number

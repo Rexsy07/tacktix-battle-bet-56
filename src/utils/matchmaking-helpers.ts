@@ -65,3 +65,41 @@ export const getStatusText = (status: string): string => {
       return status.charAt(0).toUpperCase() + status.slice(1);
   }
 };
+
+/**
+ * Validate a match result submission
+ */
+export const validateMatchResult = (resultType: string, proofImages: File[]): { valid: boolean; message?: string } => {
+  if (!['win', 'loss', 'draw', 'dispute'].includes(resultType)) {
+    return { valid: false, message: "Invalid result type" };
+  }
+  
+  if (proofImages.length === 0) {
+    return { valid: false, message: "Please upload at least one screenshot as proof" };
+  }
+  
+  if (proofImages.some(file => file.size > 5 * 1024 * 1024)) {
+    return { valid: false, message: "Some images exceed the 5MB limit" };
+  }
+  
+  return { valid: true };
+};
+
+/**
+ * Format match duration
+ */
+export const formatMatchDuration = (startTime: string, endTime: string | null): string => {
+  const start = new Date(startTime);
+  const end = endTime ? new Date(endTime) : new Date();
+  
+  const durationMs = end.getTime() - start.getTime();
+  const minutes = Math.floor(durationMs / (1000 * 60));
+  
+  if (minutes < 60) {
+    return `${minutes} minutes`;
+  } else {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  }
+};
