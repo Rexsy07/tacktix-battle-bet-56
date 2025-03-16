@@ -1,502 +1,311 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { 
-  Table, TableBody, TableCell, TableHead, 
-  TableHeader, TableRow 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Gamepad2, Search, Trophy, Calendar, FilterX, Eye, CheckCircle2, XCircle, Shield, Target } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight,
+  Clock,
+  Medal,
+  Trophy,
+  Wallet,
+  Eye,
+  X,
+  FileCheck,
+  CalendarDays,
+  Loader2
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getMatchStatusVariant, getStatusText, formatMatchDuration } from "@/utils/matchmaking-helpers";
+import { getUserMatchHistory, getUserMatchStats } from "@/utils/history-utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const History = () => {
-  const [matchFilter, setMatchFilter] = useState("");
-  const [matchTimeFrame, setMatchTimeFrame] = useState("all");
-  const [transactionFilter, setTransactionFilter] = useState("");
-  const [transactionTimeFrame, setTransactionTimeFrame] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [matchHistory, setMatchHistory] = useState<any[]>([]);
+  const [matchStats, setMatchStats] = useState({
+    matches_played: 0,
+    matches_won: 0,
+    win_rate: 0,
+    total_earnings: 0
+  });
+  const [userId, setUserId] = useState<string | null>(null);
   
-  // Mock data
-  const matches = [
-    {
-      id: "match-1",
-      date: "2023-06-15T14:30:00",
-      mode: "Search & Destroy",
-      map: "Standoff",
-      opponent: "DeadlyAssault",
-      betAmount: "₦5,000",
-      result: "win",
-      score: "6-4",
-      earnings: "₦9,500"
-    },
-    {
-      id: "match-2",
-      date: "2023-06-14T18:45:00",
-      mode: "Hardpoint",
-      map: "Nuketown",
-      opponent: "ShadowNinja",
-      betAmount: "₦3,000",
-      result: "loss",
-      score: "150-200",
-      earnings: "₦0"
-    },
-    {
-      id: "match-3",
-      date: "2023-06-12T20:15:00",
-      mode: "Battle Royale",
-      map: "Isolated",
-      opponent: "FragMaster",
-      betAmount: "₦2,000",
-      result: "win",
-      score: "1st place",
-      earnings: "₦3,800"
-    },
-    {
-      id: "match-4",
-      date: "2023-06-10T16:00:00",
-      mode: "Search & Destroy",
-      map: "Crash",
-      opponent: "TacticalOps",
-      betAmount: "₦10,000",
-      result: "loss",
-      score: "4-6",
-      earnings: "₦0"
-    },
-    {
-      id: "match-5",
-      date: "2023-06-08T21:30:00",
-      mode: "Gunfight",
-      map: "Pine",
-      opponent: "VictoryHunter",
-      betAmount: "₦1,000",
-      result: "win",
-      score: "6-2",
-      earnings: "₦1,900"
-    }
-  ];
-  
-  const transactions = [
-    {
-      id: "tx-1",
-      date: "2023-06-15T15:30:00",
-      type: "withdrawal",
-      amount: "₦5,000",
-      method: "Bank Transfer",
-      status: "completed"
-    },
-    {
-      id: "tx-2",
-      date: "2023-06-15T14:45:00",
-      type: "earning",
-      amount: "₦9,500",
-      method: "Match Win",
-      status: "completed"
-    },
-    {
-      id: "tx-3",
-      date: "2023-06-12T10:00:00",
-      type: "deposit",
-      amount: "₦10,000",
-      method: "Credit Card",
-      status: "completed"
-    },
-    {
-      id: "tx-4",
-      date: "2023-06-10T16:30:00",
-      type: "loss",
-      amount: "₦10,000",
-      method: "Match Loss",
-      status: "completed"
-    },
-    {
-      id: "tx-5",
-      date: "2023-06-05T09:15:00",
-      type: "deposit",
-      amount: "₦15,000",
-      method: "Bank Transfer",
-      status: "completed"
-    }
-  ];
-  
-  // Filter functions
-  const filterMatches = () => {
-    return matches.filter(match => {
-      const searchMatch = 
-        match.mode.toLowerCase().includes(matchFilter.toLowerCase()) ||
-        match.map.toLowerCase().includes(matchFilter.toLowerCase()) ||
-        match.opponent.toLowerCase().includes(matchFilter.toLowerCase());
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!searchMatch) return false;
-      
-      if (matchTimeFrame === "all") return true;
-      const now = new Date();
-      const matchDate = new Date(match.date);
-      
-      if (matchTimeFrame === "today") {
-        return matchDate.toDateString() === now.toDateString();
-      } else if (matchTimeFrame === "week") {
-        const oneWeekAgo = new Date(now);
-        oneWeekAgo.setDate(now.getDate() - 7);
-        return matchDate >= oneWeekAgo;
-      } else if (matchTimeFrame === "month") {
-        const oneMonthAgo = new Date(now);
-        oneMonthAgo.setMonth(now.getMonth() - 1);
-        return matchDate >= oneMonthAgo;
+      if (!session) {
+        window.location.href = "/sign-in";
+        return;
       }
       
-      return true;
-    });
-  };
+      setUserId(session.user.id);
+    };
+    
+    checkAuth();
+  }, []);
   
-  const filterTransactions = () => {
-    return transactions.filter(tx => {
-      const searchMatch = 
-        tx.type.toLowerCase().includes(transactionFilter.toLowerCase()) ||
-        tx.method.toLowerCase().includes(transactionFilter.toLowerCase());
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!userId) return;
       
-      if (!searchMatch) return false;
+      setLoading(true);
       
-      if (transactionTimeFrame === "all") return true;
-      const now = new Date();
-      const txDate = new Date(tx.date);
-      
-      if (transactionTimeFrame === "today") {
-        return txDate.toDateString() === now.toDateString();
-      } else if (transactionTimeFrame === "week") {
-        const oneWeekAgo = new Date(now);
-        oneWeekAgo.setDate(now.getDate() - 7);
-        return txDate >= oneWeekAgo;
-      } else if (transactionTimeFrame === "month") {
-        const oneMonthAgo = new Date(now);
-        oneMonthAgo.setMonth(now.getMonth() - 1);
-        return txDate >= oneMonthAgo;
+      // Fetch match stats
+      const statsResult = await getUserMatchStats(userId);
+      if (statsResult.success) {
+        setMatchStats(statsResult.data);
       }
       
-      return true;
-    });
+      // Fetch match history
+      const historyResult = await getUserMatchHistory(
+        userId, 
+        1, 
+        20, 
+        activeTab !== "all" ? activeTab : undefined
+      );
+      
+      if (historyResult.success) {
+        setMatchHistory(historyResult.data);
+      }
+      
+      setLoading(false);
+    };
+    
+    fetchData();
+  }, [userId, activeTab]);
+  
+  const getOpponent = (match: any) => {
+    if (!userId) return null;
+    return match.host_id === userId ? match.opponent : match.host;
   };
   
-  const filteredMatches = filterMatches();
-  const filteredTransactions = filterTransactions();
-  
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-NG', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+  const isWinner = (match: any) => {
+    return match.winner_id === userId;
   };
   
-  // Stats calculation
-  const totalMatches = matches.length;
-  const totalWins = matches.filter(m => m.result === "win").length;
-  const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
-  const totalEarnings = matches.reduce((sum, match) => {
-    return sum + (match.result === "win" ? parseInt(match.earnings.replace(/[^\d]/g, "")) : 0);
-  }, 0);
+  const statsCards = [
+    {
+      title: "Matches Played",
+      value: matchStats.matches_played,
+      icon: <Clock className="h-8 w-8 text-blue-500" />,
+      desc: "Total matches"
+    },
+    {
+      title: "Matches Won",
+      value: matchStats.matches_won,
+      icon: <Trophy className="h-8 w-8 text-yellow-500" />,
+      desc: "Total victories"
+    },
+    {
+      title: "Win Rate",
+      value: `${matchStats.win_rate}%`,
+      icon: <Medal className="h-8 w-8 text-green-500" />,
+      desc: "Victory percentage"
+    },
+    {
+      title: "Total Earnings",
+      value: `₦${matchStats.total_earnings.toLocaleString()}`,
+      icon: <Wallet className="h-8 w-8 text-purple-500" />,
+      desc: "From won matches"
+    }
+  ];
+
+  if (!userId || loading) {
+    return (
+      <Layout>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-6 text-gradient">Match History</h1>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <Skeleton className="h-8 w-8 rounded-full mb-4" />
+                  <Skeleton className="h-6 w-24 mb-2" />
+                  <Skeleton className="h-10 w-16 mb-2" />
+                  <Skeleton className="h-4 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          
+          <Card className="mb-8">
+            <CardHeader>
+              <Skeleton className="h-8 w-32 mb-2" />
+              <Skeleton className="h-4 w-48" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold">History</h1>
-          <p className="text-gray-400">View your past matches and transactions</p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-6 text-gradient">Match History</h1>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {statsCards.map((card, index) => (
+            <Card key={index}>
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  {card.icon}
+                </div>
+                <CardTitle className="text-xl mb-2">{card.title}</CardTitle>
+                <div className="text-3xl font-bold mb-2">{card.value}</div>
+                <CardDescription>{card.desc}</CardDescription>
+              </CardContent>
+            </Card>
+          ))}
         </div>
         
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Total Matches</p>
-                  <h3 className="text-2xl font-bold text-white">{totalMatches}</h3>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-tacktix-blue/10 flex items-center justify-center">
-                  <Gamepad2 className="text-tacktix-blue" size={24} />
-                </div>
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Recent Matches</CardTitle>
+            <CardDescription>Review your most recent games and their outcomes</CardDescription>
+            
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-full sm:w-auto bg-tacktix-dark-deeper">
+                <TabsTrigger value="all">All Matches</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+                <TabsTrigger value="pending">Pending</TabsTrigger>
+                <TabsTrigger value="disputed">Disputed</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Win Rate</p>
-                  <h3 className="text-2xl font-bold text-white">{winRate}%</h3>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-tacktix-blue/10 flex items-center justify-center">
-                  <Trophy className="text-tacktix-blue" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Total Earnings</p>
-                  <h3 className="text-2xl font-bold text-tacktix-blue">₦{totalEarnings.toLocaleString()}</h3>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-tacktix-blue/10 flex items-center justify-center">
-                  <Trophy className="text-tacktix-blue" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Last Played</p>
-                  <h3 className="text-lg font-bold text-white">{formatDate(matches[0]?.date || new Date().toISOString())}</h3>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-tacktix-blue/10 flex items-center justify-center">
-                  <Calendar className="text-tacktix-blue" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <Tabs defaultValue="matches" className="w-full">
-          <TabsList className="grid grid-cols-2 w-full md:w-[400px]">
-            <TabsTrigger value="matches">Match History</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="matches">
-            <Card className="glass-card">
-              <CardHeader>
-                <div className="flex flex-col md:flex-row justify-between gap-4 md:items-center">
-                  <div>
-                    <CardTitle>Match History</CardTitle>
-                    <CardDescription>View all your previous matches</CardDescription>
-                  </div>
-                  
-                  <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                    <div className="relative md:w-64">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                      <Input
-                        placeholder="Search matches..."
-                        className="pl-9 bg-tacktix-dark-light"
-                        value={matchFilter}
-                        onChange={(e) => setMatchFilter(e.target.value)}
-                      />
-                      {matchFilter && (
-                        <button 
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                          onClick={() => setMatchFilter("")}
-                        >
-                          <FilterX size={16} />
-                        </button>
-                      )}
-                    </div>
+            ) : matchHistory.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Match Details</TableHead>
+                    <TableHead>Opponent</TableHead>
+                    <TableHead>Bet Amount</TableHead>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Result</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matchHistory.map((match) => {
+                    const opponent = getOpponent(match);
+                    const winner = isWinner(match);
                     
-                    <Select value={matchTimeFrame} onValueChange={setMatchTimeFrame}>
-                      <SelectTrigger className="bg-tacktix-dark-light text-white w-full md:w-[140px]">
-                        <SelectValue placeholder="Filter by time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Time</SelectItem>
-                        <SelectItem value="today">Today</SelectItem>
-                        <SelectItem value="week">This Week</SelectItem>
-                        <SelectItem value="month">This Month</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {filteredMatches.length > 0 ? (
-                  <div className="rounded-md overflow-hidden border border-white/10">
-                    <Table>
-                      <TableHeader className="bg-tacktix-dark-deeper">
-                        <TableRow>
-                          <TableHead className="w-[120px]">Date</TableHead>
-                          <TableHead>Game Mode</TableHead>
-                          <TableHead>Map</TableHead>
-                          <TableHead>Opponent</TableHead>
-                          <TableHead>Bet Amount</TableHead>
-                          <TableHead>Result</TableHead>
-                          <TableHead>Score</TableHead>
-                          <TableHead className="text-right">Earnings</TableHead>
-                          <TableHead className="w-[100px] text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredMatches.map((match) => (
-                          <TableRow key={match.id} className="hover:bg-white/5">
-                            <TableCell className="font-medium">{formatDate(match.date)}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center">
-                                {match.mode === "Search & Destroy" ? (
-                                  <Shield size={16} className="mr-2 text-tacktix-blue" />
-                                ) : match.mode === "Hardpoint" ? (
-                                  <Target size={16} className="mr-2 text-tacktix-blue" />
-                                ) : (
-                                  <Gamepad2 size={16} className="mr-2 text-tacktix-blue" />
-                                )}
-                                {match.mode}
+                    return (
+                      <TableRow key={match.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{match.game_mode}</div>
+                            <div className="text-sm text-gray-400">{match.map_name}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={opponent?.avatar_url || ""} />
+                              <AvatarFallback>{opponent?.username?.substring(0, 2) || "?"}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{opponent?.username || "No Opponent"}</div>
+                              {match.start_time && (
+                                <div className="text-xs text-gray-400">
+                                  {formatMatchDuration(match.start_time, match.status === "completed" ? match.updated_at : null)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">₦{match.bet_amount.toLocaleString()}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
+                            <span>{new Date(match.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {new Date(match.created_at).toLocaleTimeString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getMatchStatusVariant(match.status)}>
+                            {getStatusText(match.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {match.status === "completed" ? (
+                            winner ? (
+                              <div className="flex items-center text-green-500">
+                                <Trophy className="h-4 w-4 mr-1" />
+                                <span>Won</span>
                               </div>
-                            </TableCell>
-                            <TableCell>{match.map}</TableCell>
-                            <TableCell>{match.opponent}</TableCell>
-                            <TableCell>{match.betAmount}</TableCell>
-                            <TableCell>
-                              <Badge variant={match.result === "win" ? "success" : "destructive"}>
-                                {match.result === "win" ? (
-                                  <CheckCircle2 size={14} className="mr-1" />
-                                ) : (
-                                  <XCircle size={14} className="mr-1" />
-                                )}
-                                {match.result.charAt(0).toUpperCase() + match.result.slice(1)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{match.score}</TableCell>
-                            <TableCell className={`text-right font-medium ${match.result === "win" ? "text-green-500" : "text-gray-400"}`}>
-                              {match.earnings}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="outline" size="icon" className="h-8 w-8">
-                                <Eye size={16} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="mx-auto h-12 w-12 rounded-full bg-tacktix-dark-light flex items-center justify-center mb-4">
-                      <Gamepad2 size={24} className="text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-white mb-2">No Matches Found</h3>
-                    <p className="text-gray-400 max-w-md mx-auto">
-                      We couldn't find any matches matching your search criteria. Try adjusting your filters.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="transactions">
-            <Card className="glass-card">
-              <CardHeader>
-                <div className="flex flex-col md:flex-row justify-between gap-4 md:items-center">
-                  <div>
-                    <CardTitle>Transaction History</CardTitle>
-                    <CardDescription>View all your financial transactions</CardDescription>
-                  </div>
-                  
-                  <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                    <div className="relative md:w-64">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                      <Input
-                        placeholder="Search transactions..."
-                        className="pl-9 bg-tacktix-dark-light"
-                        value={transactionFilter}
-                        onChange={(e) => setTransactionFilter(e.target.value)}
-                      />
-                      {transactionFilter && (
-                        <button 
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                          onClick={() => setTransactionFilter("")}
-                        >
-                          <FilterX size={16} />
-                        </button>
-                      )}
-                    </div>
-                    
-                    <Select value={transactionTimeFrame} onValueChange={setTransactionTimeFrame}>
-                      <SelectTrigger className="bg-tacktix-dark-light text-white w-full md:w-[140px]">
-                        <SelectValue placeholder="Filter by time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Time</SelectItem>
-                        <SelectItem value="today">Today</SelectItem>
-                        <SelectItem value="week">This Week</SelectItem>
-                        <SelectItem value="month">This Month</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {filteredTransactions.length > 0 ? (
-                  <div className="rounded-md overflow-hidden border border-white/10">
-                    <Table>
-                      <TableHeader className="bg-tacktix-dark-deeper">
-                        <TableRow>
-                          <TableHead className="w-[120px]">Date</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Method</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="w-[100px] text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredTransactions.map((tx) => (
-                          <TableRow key={tx.id} className="hover:bg-white/5">
-                            <TableCell className="font-medium">{formatDate(tx.date)}</TableCell>
-                            <TableCell>
-                              <Badge variant={
-                                tx.type === "deposit" || tx.type === "earning" 
-                                  ? "success" 
-                                  : "destructive"
-                              }>
-                                {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{tx.method}</TableCell>
-                            <TableCell className={`text-right font-medium ${
-                              tx.type === "deposit" || tx.type === "earning" 
-                                ? "text-green-500" 
-                                : "text-tacktix-red"
-                            }`}>
-                              {tx.type === "deposit" || tx.type === "earning" ? "+" : "-"}{tx.amount}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                                {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="outline" size="icon" className="h-8 w-8">
-                                <Eye size={16} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="mx-auto h-12 w-12 rounded-full bg-tacktix-dark-light flex items-center justify-center mb-4">
-                      <Calendar size={24} className="text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-white mb-2">No Transactions Found</h3>
-                    <p className="text-gray-400 max-w-md mx-auto">
-                      We couldn't find any transactions matching your search criteria. Try adjusting your filters.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                            ) : (
+                              <div className="flex items-center text-red-500">
+                                <X className="h-4 w-4 mr-1" />
+                                <span>Lost</span>
+                              </div>
+                            )
+                          ) : match.status === "disputed" ? (
+                            <div className="flex items-center text-yellow-500">
+                              <FileCheck className="h-4 w-4 mr-1" />
+                              <span>Disputed</span>
+                            </div>
+                          ) : (
+                            <div className="text-gray-400">-</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/match/${match.id}`}>
+                            <Button variant="outline" size="sm" className="h-8 px-3">
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              View
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-12 bg-tacktix-dark-lighter rounded-lg">
+                <Clock className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                <h3 className="text-xl font-medium mb-2">No Match History</h3>
+                <p className="text-gray-400 max-w-md mx-auto mb-4">
+                  You haven't played any matches yet. Join a match to start building your history.
+                </p>
+                <Link to="/matchmaking">
+                  <Button variant="gradient">
+                    Find Matches
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );

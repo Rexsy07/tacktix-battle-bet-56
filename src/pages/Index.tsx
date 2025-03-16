@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from "react";
 import Layout from "@/components/layout/Layout";
 import HeroSection from "@/components/home/HeroSection";
 import FeaturedMatches from "@/components/home/FeaturedMatches";
@@ -8,11 +9,16 @@ import Leaderboard from "@/components/home/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getFeaturedMatches, getLiveMatches, getLeaderboardData, getGameModes } from "@/utils/home-utils";
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [featuredMatches, setFeaturedMatches] = useState<any[]>([]);
+  const [liveMatches, setLiveMatches] = useState<any[]>([]);
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [gameModes, setGameModes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -30,14 +36,55 @@ const Index = () => {
       authListener.subscription.unsubscribe();
     };
   }, []);
+  
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      setLoading(true);
+      
+      // Fetch featured matches
+      const featuredResult = await getFeaturedMatches();
+      if (featuredResult.success) {
+        setFeaturedMatches(featuredResult.data);
+      }
+      
+      // Fetch live matches
+      const liveResult = await getLiveMatches();
+      if (liveResult.success) {
+        setLiveMatches(liveResult.data);
+      }
+      
+      // Fetch leaderboard data
+      const leaderboardResult = await getLeaderboardData();
+      if (leaderboardResult.success) {
+        setLeaderboardData(leaderboardResult.data);
+      }
+      
+      // Fetch game modes
+      const modesResult = await getGameModes();
+      if (modesResult.success) {
+        setGameModes(modesResult.data);
+      }
+      
+      setLoading(false);
+    };
+    
+    fetchHomeData();
+    
+    // Set up a refresh interval (every 30 seconds)
+    const interval = setInterval(fetchHomeData, 30000);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <Layout fullWidth>
       <HeroSection />
-      <LiveMatches />
-      <FeaturedMatches />
-      <GameModes />
-      <Leaderboard />
+      <LiveMatches matches={liveMatches} isLoading={loading} />
+      <FeaturedMatches matches={featuredMatches} isLoading={loading} />
+      <GameModes modes={gameModes} isLoading={loading} />
+      <Leaderboard leaderboardData={leaderboardData} isLoading={loading} />
       
       {/* CTA Section */}
       <section className="py-20 relative overflow-hidden">
