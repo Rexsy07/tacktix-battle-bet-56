@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,14 +54,21 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
   currentUser
 }) => {
   const { toast } = useToast();
-  const [lobbyCode] = React.useState(generateLobbyCode);
+  const [lobbyCode, setLobbyCode] = useState(generateLobbyCode);
+  const [customLobbyCode, setCustomLobbyCode] = useState("");
 
   const copyLobbyCode = () => {
-    navigator.clipboard.writeText(lobbyCode);
+    navigator.clipboard.writeText(customLobbyCode || lobbyCode);
     toast({
       title: "Copied!",
       description: "Lobby code copied to clipboard",
     });
+  };
+
+  const handleGenerateNewCode = () => {
+    const newCode = generateLobbyCode();
+    setLobbyCode(newCode);
+    setCustomLobbyCode("");
   };
 
   return (
@@ -165,12 +172,25 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-medium">Lobby Code</label>
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-medium">Lobby Code</label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleGenerateNewCode}
+              >
+                Generate New
+              </Button>
+            </div>
+            
             <div className="flex gap-2">
               <Input
-                value={lobbyCode}
-                readOnly
+                value={customLobbyCode || lobbyCode}
+                onChange={(e) => setCustomLobbyCode(e.target.value.toUpperCase())}
+                placeholder="Enter custom lobby code"
                 className="bg-tacktix-dark-light text-white"
+                maxLength={8}
               />
               <Button
                 variant="outline"
@@ -241,15 +261,22 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
             <div className="p-4">
               <div className="flex items-center mb-4">
                 <div className="h-10 w-10 bg-tacktix-dark-light rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                  {currentUser?.email?.charAt(0).toUpperCase() || "?"}
+                  {currentUser?.username?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "?"}
                 </div>
                 <div>
-                  <div className="font-medium text-white">{currentUser?.email || "Sign in to create"}</div>
+                  <div className="font-medium text-white">{currentUser?.username || currentUser?.email || "Sign in to create"}</div>
                   <div className="text-xs text-gray-400">Host</div>
                 </div>
               </div>
               
               <div className="space-y-4">
+                <div>
+                  <div className="text-sm text-gray-400 mb-2">Lobby Code</div>
+                  <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-center font-mono font-medium text-lg">
+                    {customLobbyCode || lobbyCode || "XXXXXX"}
+                  </div>
+                </div>
+                
                 <div>
                   <div className="text-sm text-gray-400 mb-2">Match Rules</div>
                   <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">

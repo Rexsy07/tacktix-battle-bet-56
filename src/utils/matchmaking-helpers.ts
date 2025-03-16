@@ -24,3 +24,44 @@ export const formatTimeRemaining = (createdAt: string): string => {
 export const generateLobbyCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
+
+/**
+ * Get the status badge variant based on match status
+ */
+export const getMatchStatusVariant = (status: string): "default" | "outline" | "secondary" | "destructive" | "success" => {
+  switch (status) {
+    case 'pending':
+      return 'outline';
+    case 'in_progress':
+    case 'active':
+      return 'secondary';
+    case 'completed':
+      return 'success';
+    case 'disputed':
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'default';
+  }
+};
+
+/**
+ * Get user-friendly status text
+ */
+export const getStatusText = (status: string): string => {
+  switch (status) {
+    case 'pending':
+      return 'Waiting for opponent';
+    case 'in_progress':
+    case 'active':
+      return 'In Progress';
+    case 'completed':
+      return 'Completed';
+    case 'disputed':
+      return 'Disputed';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+};
