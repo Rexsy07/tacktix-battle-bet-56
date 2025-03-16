@@ -17,3 +17,10 @@ export const formatTimeRemaining = (createdAt: string): string => {
     return `${hoursOpen}h ${remainingMinutes}m`;
   }
 };
+
+/**
+ * Generate a random lobby code
+ */
+export const generateLobbyCode = (): string => {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+};

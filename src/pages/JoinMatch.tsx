@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, CreditCard, Map, Trophy, Clock, AlertCircle } from "lucide-react";
+import { Users, CreditCard, Map, Trophy, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const JoinMatch = () => {
   const { id } = useParams();
@@ -18,6 +20,8 @@ const JoinMatch = () => {
   const [joining, setJoining] = useState(false);
   const [matchDetails, setMatchDetails] = useState<any>(null);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [lobbyCodeInput, setLobbyCodeInput] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,19 +38,26 @@ const JoinMatch = () => {
           navigate("/sign-in");
           return;
         }
+        
+        setCurrentUser({
+          id: session.user.id
+        });
 
         // Fetch match details
         const { data: matchData, error: matchError } = await supabase
           .from("matches")
           .select(`
             *,
-            host:host_id(username),
-            opponent:opponent_id(username)
+            host:profiles!matches_host_id_fkey(id, username, avatar_url),
+            opponent:profiles!matches_opponent_id_fkey(id, username, avatar_url)
           `)
           .eq("id", id)
           .single();
 
-        if (matchError) throw matchError;
+        if (matchError) {
+          console.error("Match fetch error:", matchError);
+          throw new Error("Could not find match details");
+        }
         
         if (!matchData) {
           toast({
@@ -67,7 +78,11 @@ const JoinMatch = () => {
           .eq("user_id", session.user.id)
           .single();
           
-        if (walletError) throw walletError;
+        if (walletError) {
+          console.error("Wallet fetch error:", walletError);
+          throw new Error("Could not fetch wallet balance");
+        }
+        
         setWalletBalance(walletData?.balance || 0);
       } catch (error: any) {
         console.error("Error fetching data:", error);
@@ -88,8 +103,7 @@ const JoinMatch = () => {
     try {
       setJoining(true);
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!currentUser) {
         toast({
           title: "Authentication required",
           description: "Please sign in to join matches",
@@ -104,6 +118,16 @@ const JoinMatch = () => {
         toast({
           title: "Match is full",
           description: "This match already has an opponent",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Verify lobby code if entered
+      if (lobbyCodeInput && lobbyCodeInput !== matchDetails.lobby_code) {
+        toast({
+          title: "Invalid Lobby Code",
+          description: "The lobby code you entered is incorrect",
           variant: "destructive",
         });
         return;
@@ -124,33 +148,12 @@ const JoinMatch = () => {
       const { error: joinError } = await supabase
         .from("matches")
         .update({ 
-          opponent_id: session.user.id,
+          opponent_id: currentUser.id,
           status: "waiting" 
         })
         .eq("id", id);
         
       if (joinError) throw joinError;
-      
-      // Deduct bet amount from wallet
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ 
-          balance: walletBalance - matchDetails.bet_amount 
-        })
-        .eq("user_id", session.user.id);
-        
-      if (walletError) throw walletError;
-      
-      // Add transaction record
-      await supabase
-        .from("transactions")
-        .insert({
-          wallet_id: session.user.id,
-          amount: matchDetails.bet_amount,
-          type: "bet",
-          status: "completed",
-          description: `Bet placed on match ${id}`
-        });
       
       toast({
         title: "Match joined successfully",
@@ -174,11 +177,16 @@ const JoinMatch = () => {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tacktix-blue"></div>
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-tacktix-blue" />
+            <p className="text-lg">Loading match details...</p>
+          </div>
         </div>
       </Layout>
     );
   }
+  
+  const isMatchHost = currentUser?.id === matchDetails?.host?.id;
   
   return (
     <Layout>
@@ -244,6 +252,7 @@ const JoinMatch = () => {
                 <h3 className="text-lg font-medium mb-4">Players</h3>
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-12 w-12">
+                    <AvatarImage src={matchDetails.host?.avatar_url} />
                     <AvatarFallback className="bg-tacktix-blue text-white">
                       {matchDetails.host?.username?.charAt(0).toUpperCase() || "H"}
                     </AvatarFallback>
@@ -261,17 +270,92 @@ const JoinMatch = () => {
                 </div>
                 
                 <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-tacktix-dark-light text-gray-300">
-                      <Users size={20} />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">Waiting for opponent</div>
-                    <div className="text-sm text-tacktix-blue">This could be you!</div>
-                  </div>
+                  {matchDetails.opponent ? (
+                    <>
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={matchDetails.opponent?.avatar_url} />
+                        <AvatarFallback className="bg-tacktix-green text-white">
+                          {matchDetails.opponent?.username?.charAt(0).toUpperCase() || "O"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{matchDetails.opponent?.username}</div>
+                        <div className="text-sm text-gray-400">Opponent</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className="bg-tacktix-dark-light text-gray-300">
+                          <Users size={20} />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">Waiting for opponent</div>
+                        <div className="text-sm text-tacktix-blue">This could be you!</div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
+              
+              {isMatchHost && (
+                <div className="bg-tacktix-dark-light p-4 rounded-lg">
+                  <h3 className="text-lg font-medium mb-2">Manage Lobby</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Lobby Code</label>
+                      <div className="flex gap-2">
+                        <Input 
+                          value={matchDetails.lobby_code} 
+                          readOnly 
+                          className="bg-tacktix-dark-deeper"
+                        />
+                        <Button
+                          variant="outline" 
+                          size="icon" 
+                          onClick={() => {
+                            navigator.clipboard.writeText(matchDetails.lobby_code);
+                            toast({
+                              title: "Copied!",
+                              description: "Lobby code copied to clipboard",
+                            });
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">Share this code with your opponent</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Match Instructions</label>
+                      <Textarea 
+                        className="bg-tacktix-dark-deeper resize-none h-24"
+                        placeholder="Provide any additional instructions for your opponent..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!isMatchHost && !matchDetails.opponent && (
+                <div className="bg-tacktix-dark-light p-4 rounded-lg">
+                  <h3 className="text-lg font-medium mb-2">Join Match</h3>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Enter Lobby Code</label>
+                    <Input 
+                      value={lobbyCodeInput} 
+                      onChange={(e) => setLobbyCodeInput(e.target.value)}
+                      placeholder="Enter the lobby code provided by the host" 
+                      className="bg-tacktix-dark-deeper"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">The lobby code is required to join this match</p>
+                  </div>
+                </div>
+              )}
               
               <div className="p-4 bg-tacktix-dark-light rounded-lg">
                 <div className="flex items-start">
@@ -303,22 +387,25 @@ const JoinMatch = () => {
               
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={() => navigate("/matchmaking")}>
-                  Cancel
+                  Back
                 </Button>
-                <Button 
-                  variant="gradient" 
-                  onClick={handleJoinMatch}
-                  disabled={joining || walletBalance < (matchDetails.bet_amount || 0) || matchDetails.opponent_id !== null}
-                >
-                  {joining ? (
-                    <>
-                      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      Joining...
-                    </>
-                  ) : (
-                    `Join for ₦${(matchDetails.bet_amount || 0).toLocaleString()}`
-                  )}
-                </Button>
+                
+                {!isMatchHost && !matchDetails.opponent && (
+                  <Button 
+                    variant="gradient" 
+                    onClick={handleJoinMatch}
+                    disabled={joining || walletBalance < (matchDetails.bet_amount || 0)}
+                  >
+                    {joining ? (
+                      <>
+                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                        Joining...
+                      </>
+                    ) : (
+                      `Join for ₦${(matchDetails.bet_amount || 0).toLocaleString()}`
+                    )}
+                  </Button>
+                )}
               </div>
             </CardFooter>
           </Card>

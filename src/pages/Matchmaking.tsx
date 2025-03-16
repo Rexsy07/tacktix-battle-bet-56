@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BrowseMatchesTab from "@/components/matchmaking/BrowseMatchesTab";
 import FindMatchTab from "@/components/matchmaking/FindMatchTab";
 import CreateMatchTab from "@/components/matchmaking/CreateMatchTab";
-import { formatTimeRemaining } from "@/utils/matchmaking-helpers";
+import { formatTimeRemaining, generateLobbyCode } from "@/utils/matchmaking-helpers";
 
 const gameModes = [
   { id: "snd", name: "Search & Destroy", icon: <Shield size={20} />, maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"] },
@@ -148,7 +148,7 @@ const Matchmaking = () => {
     
     try {
       // Generate a random lobby code
-      const lobbyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const lobbyCode = generateLobbyCode();
       
       // Insert new match into the database
       const { data: matchData, error: matchError } = await supabase
@@ -166,30 +166,6 @@ const Matchmaking = () => {
         .single();
         
       if (matchError) throw matchError;
-      
-      // Deduct bet amount from wallet
-      const { error: walletError } = await supabase
-        .from('wallets')
-        .update({ 
-          balance: walletBalance - selectedBetAmount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', currentUser.id);
-        
-      if (walletError) throw walletError;
-      
-      // Add transaction record
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          wallet_id: currentUser.id,
-          amount: selectedBetAmount,
-          type: 'bet',
-          status: 'completed',
-          description: `Bet placed on ${activeGameMode!.name} match on ${selectedMap}`
-        });
-        
-      if (transactionError) throw transactionError;
       
       toast({
         title: "Match Created!",

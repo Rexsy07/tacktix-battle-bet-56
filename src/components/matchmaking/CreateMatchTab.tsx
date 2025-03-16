@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, ArrowRight } from "lucide-react";
+import { Users, ArrowRight, Copy } from "lucide-react";
 import MatchTypeCard from "@/components/ui/MatchTypeCard";
+import { useToast } from "@/components/ui/use-toast";
+import { generateLobbyCode } from "@/utils/matchmaking-helpers";
 
 interface CreateMatchTabProps {
   gameModes: any[];
@@ -51,6 +53,17 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
   handleCreateMatch,
   currentUser
 }) => {
+  const { toast } = useToast();
+  const [lobbyCode] = React.useState(generateLobbyCode);
+
+  const copyLobbyCode = () => {
+    navigator.clipboard.writeText(lobbyCode);
+    toast({
+      title: "Copied!",
+      description: "Lobby code copied to clipboard",
+    });
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card className="glass-card">
@@ -149,6 +162,28 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
                 />
               </div>
             </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Lobby Code</label>
+            <div className="flex gap-2">
+              <Input
+                value={lobbyCode}
+                readOnly
+                className="bg-tacktix-dark-light text-white"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={copyLobbyCode}
+                className="bg-tacktix-dark-light border-white/10"
+              >
+                <Copy size={16} />
+              </Button>
+            </div>
+            <p className="text-xs text-gray-400">
+              Share this code with your opponent. They'll need it to join the match.
+            </p>
           </div>
           
           {currentUser && (
