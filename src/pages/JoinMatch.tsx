@@ -22,6 +22,7 @@ const JoinMatch = () => {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [lobbyCodeInput, setLobbyCodeInput] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userWalletId, setUserWalletId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,10 +72,10 @@ const JoinMatch = () => {
         
         setMatchDetails(matchData);
         
-        // Fetch user's wallet balance
+        // Fetch user's wallet balance and wallet ID
         const { data: walletData, error: walletError } = await supabase
           .from("wallets")
-          .select("balance")
+          .select("id, balance")
           .eq("user_id", session.user.id)
           .single();
           
@@ -84,6 +85,7 @@ const JoinMatch = () => {
         }
         
         setWalletBalance(walletData?.balance || 0);
+        setUserWalletId(walletData?.id || null);
       } catch (error: any) {
         console.error("Error fetching data:", error);
         toast({
@@ -110,6 +112,15 @@ const JoinMatch = () => {
           variant: "destructive",
         });
         navigate("/sign-in");
+        return;
+      }
+
+      if (!userWalletId) {
+        toast({
+          title: "Wallet not found",
+          description: "Your wallet could not be found",
+          variant: "destructive",
+        });
         return;
       }
       
@@ -143,6 +154,8 @@ const JoinMatch = () => {
         navigate("/wallet");
         return;
       }
+
+      console.log("Joining match with wallet ID:", userWalletId);
       
       // First deduct the bet amount from player's wallet
       const { error: walletError } = await supabase
@@ -153,20 +166,29 @@ const JoinMatch = () => {
         })
         .eq("user_id", currentUser.id);
         
-      if (walletError) throw walletError;
+      if (walletError) {
+        console.error("Wallet update error:", walletError);
+        throw walletError;
+      }
       
       // Create transaction record for the bet
       const { error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          wallet_id: (await supabase.from("wallets").select("id").eq("user_id", currentUser.id).single()).data?.id,
-          amount: -matchDetails.bet_amount,
+          wallet_id: userWalletId,
+          amount: matchDetails.bet_amount,
           type: "bet",
           status: "completed",
-          description: `Bet placed on match ${id}`
+          description: `Bet placed on match ${id}`,
+          // Add required fields that might be missing
+          transaction_type: "bet",
+          payment_method: "wallet"
         });
       
-      if (transactionError) throw transactionError;
+      if (transactionError) {
+        console.error("Transaction insert error:", transactionError);
+        throw transactionError;
+      }
       
       // Join match
       const { error: joinError } = await supabase
@@ -179,7 +201,10 @@ const JoinMatch = () => {
         })
         .eq("id", id);
         
-      if (joinError) throw joinError;
+      if (joinError) {
+        console.error("Match join error:", joinError);
+        throw joinError;
+      }
       
       toast({
         title: "Match joined successfully",
