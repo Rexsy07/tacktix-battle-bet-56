@@ -150,6 +150,19 @@ const FeatureMatchDetails = () => {
         return;
       }
       
+      // Update the match with the opponent first
+      const { error: matchError } = await supabase
+        .from("matches")
+        .update({ 
+          opponent_id: userId,
+          status: "in_progress",
+          start_time: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", matchId);
+      
+      if (matchError) throw matchError;
+      
       // Deduct the bet amount from the user's wallet
       const { error: walletError } = await supabase
         .from("wallets")
@@ -167,25 +180,16 @@ const FeatureMatchDetails = () => {
         .insert({
           wallet_id: currentUserWallet.id,
           amount: -match.bet_amount,
-          type: "bet",
+          transaction_type: "bet", // Use transaction_type field instead of type
           status: "completed",
-          description: `Bet placed on match ${matchId}`
+          description: `Bet placed on match ${matchId}`,
+          payment_method: "wallet"
         });
       
-      if (transactionError) throw transactionError;
-      
-      // Update the match with the opponent
-      const { error: matchError } = await supabase
-        .from("matches")
-        .update({ 
-          opponent_id: userId,
-          status: "in_progress",
-          start_time: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", matchId);
-      
-      if (matchError) throw matchError;
+      if (transactionError) {
+        console.error("Transaction error:", transactionError);
+        // Continue even if the transaction record fails since we've already updated the wallet
+      }
       
       // Reload the match data
       const { data: updatedMatch, error: refreshError } = await supabase
