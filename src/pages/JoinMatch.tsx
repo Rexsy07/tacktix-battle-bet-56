@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -157,61 +156,98 @@ const JoinMatch = () => {
 
       console.log("Joining match with wallet ID:", userWalletId);
       
-      // First deduct the bet amount from player's wallet
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ 
-          balance: walletBalance - matchDetails.bet_amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", currentUser.id);
+      try {
+        // Join match first to secure the spot
+        const { error: joinError } = await supabase
+          .from("matches")
+          .update({ 
+            opponent_id: currentUser.id,
+            status: "waiting",
+            start_time: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", id);
+          
+        if (joinError) {
+          console.error("Match join error:", joinError);
+          throw joinError;
+        }
         
-      if (walletError) {
-        console.error("Wallet update error:", walletError);
-        throw walletError;
-      }
-      
-      // Create transaction record for the bet
-      const { error: transactionError } = await supabase
-        .from("transactions")
-        .insert({
-          wallet_id: userWalletId,
-          amount: matchDetails.bet_amount,
-          type: "bet",
-          status: "completed",
-          description: `Bet placed on match ${id}`,
-          // Add required fields that might be missing
-          transaction_type: "bet",
-          payment_method: "wallet"
+        // Then deduct the bet amount from player's wallet
+        const { error: walletError } = await supabase
+          .from("wallets")
+          .update({ 
+            balance: walletBalance - matchDetails.bet_amount,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", userWalletId);
+          
+        if (walletError) {
+          console.error("Wallet update error:", walletError);
+          throw walletError;
+        }
+        
+        // Create transaction record for the bet using the client role
+        const { error: transactionError } = await supabase
+          .from("transactions")
+          .insert({
+            wallet_id: userWalletId,
+            amount: -matchDetails.bet_amount, // Use negative amount for bets as it's money going out
+            type: "bet",
+            status: "completed",
+            description: `Bet placed on match ${id}`,
+            transaction_type: "bet",
+            payment_method: "wallet"
+          });
+        
+        if (transactionError) {
+          console.error("Transaction insert error:", transactionError);
+          console.error("Transaction details:", {
+            wallet_id: userWalletId,
+            amount: -matchDetails.bet_amount,
+            type: "bet"
+          });
+          throw transactionError;
+        }
+        
+        toast({
+          title: "Match joined successfully",
+          description: "You have successfully joined the match",
         });
-      
-      if (transactionError) {
-        console.error("Transaction insert error:", transactionError);
-        throw transactionError;
-      }
-      
-      // Join match
-      const { error: joinError } = await supabase
-        .from("matches")
-        .update({ 
-          opponent_id: currentUser.id,
-          status: "waiting",
-          start_time: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", id);
         
-      if (joinError) {
-        console.error("Match join error:", joinError);
-        throw joinError;
+        navigate(`/match/${id}`);
+      } catch (error: any) {
+        console.error("Error joining match:", error);
+        // If anything fails, attempt to restore the match to previous state
+        if (error.message.includes('violates row level security policy')) {
+          toast({
+            title: "Permission Error",
+            description: "You don't have permission to perform this action. Please try again later.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to join match",
+            variant: "destructive",
+          });
+        }
+        
+        // Attempt to revert the match status if we had updated it
+        try {
+          await supabase
+            .from("matches")
+            .update({ 
+              opponent_id: null,
+              status: "pending",
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", id)
+            .eq("opponent_id", currentUser.id);
+        } catch (revertError) {
+          console.error("Failed to revert match status:", revertError);
+        }
       }
-      
-      toast({
-        title: "Match joined successfully",
-        description: "You have successfully joined the match",
-      });
-      
-      navigate(`/match/${id}`);
     } catch (error: any) {
       console.error("Error joining match:", error);
       toast({
