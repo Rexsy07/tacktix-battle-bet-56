@@ -12,6 +12,9 @@ interface MatchCardProps {
 }
 
 const MatchCard: React.FC<MatchCardProps> = ({ match, formatTimeRemaining }) => {
+  // Don't allow joining if match already has an opponent
+  const canJoin = !match.opponent_id && match.status === 'pending';
+  
   return (
     <Card key={match.id} className="glass-card overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]">
       <div className="flex flex-col md:flex-row">
@@ -26,7 +29,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, formatTimeRemaining }) => 
             <Users size={14} className="mr-1 text-tacktix-blue" />
             <span>{match.team_size || "1v1"}</span>
           </div>
-          <div className="text-tacktix-blue font-bold mt-2">₦{match.bet_amount.toLocaleString()}</div>
+          <div className="text-tacktix-blue font-bold mt-2">₦{match.bet_amount?.toLocaleString() || '0'}</div>
         </div>
         
         <div className="md:w-2/4 p-5 border-b md:border-b-0 md:border-r border-white/5">
@@ -53,23 +56,29 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, formatTimeRemaining }) => 
               <div className="w-full bg-tacktix-dark h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-tacktix-blue to-tacktix-blue-light h-2 rounded-full"
-                  style={{ width: `50%` }}
+                  style={{ width: `${match.opponent_id ? '100%' : '50%'}` }}
                 ></div>
               </div>
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>1 joined</span>
-                <span>1 slot left</span>
+                <span>{match.opponent_id ? 'Full' : '1 slot left'}</span>
               </div>
             </div>
           </div>
         </div>
         
         <div className="md:w-1/4 p-5 flex flex-col justify-center items-center">
-          <Link to={`/join-match/${match.id}`} className="w-full mb-2">
-            <Button variant="gradient" className="w-full">
-              Join Match
+          {canJoin ? (
+            <Link to={`/join-match/${match.id}`} className="w-full mb-2">
+              <Button variant="gradient" className="w-full">
+                Join Match
+              </Button>
+            </Link>
+          ) : (
+            <Button variant="gradient" className="w-full mb-2" disabled>
+              {match.opponent_id ? "Match Full" : "Not Available"}
             </Button>
-          </Link>
+          )}
           <Link to={`/match/${match.id}`} className="w-full">
             <Button variant="outline" className="w-full text-xs">
               View Details

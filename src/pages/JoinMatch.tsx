@@ -144,12 +144,38 @@ const JoinMatch = () => {
         return;
       }
       
+      // First deduct the bet amount from player's wallet
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ 
+          balance: walletBalance - matchDetails.bet_amount,
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", currentUser.id);
+        
+      if (walletError) throw walletError;
+      
+      // Create transaction record for the bet
+      const { error: transactionError } = await supabase
+        .from("transactions")
+        .insert({
+          wallet_id: (await supabase.from("wallets").select("id").eq("user_id", currentUser.id).single()).data?.id,
+          amount: -matchDetails.bet_amount,
+          type: "bet",
+          status: "completed",
+          description: `Bet placed on match ${id}`
+        });
+      
+      if (transactionError) throw transactionError;
+      
       // Join match
       const { error: joinError } = await supabase
         .from("matches")
         .update({ 
           opponent_id: currentUser.id,
-          status: "waiting" 
+          status: "waiting",
+          start_time: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq("id", id);
         

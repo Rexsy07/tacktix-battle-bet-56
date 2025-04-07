@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ const Navbar = () => {
 
   const navLinks = [
     { name: "Home", path: "/", icon: <Home className="w-4 h-4 mr-2" />, showAlways: true },
-    { name: "Matchmaking", path: "/matchmaking", icon: <Search className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "Matchmaking", path: "/matchmaking", icon: <Search className="w-4 h-4 mr-2" />, showAlways: true },
     { name: "Profile", path: "/profile", icon: <User className="w-4 h-4 mr-2" />, showAlways: false },
     { name: "History", path: "/history", icon: <History className="w-4 h-4 mr-2" />, showAlways: false },
     { name: "Leaderboards", path: "/leaderboards", icon: <Trophy className="w-4 h-4 mr-2" />, showAlways: true },
