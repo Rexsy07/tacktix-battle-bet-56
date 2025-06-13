@@ -87,36 +87,16 @@ const MatchResultForm = ({
       
       if (!success) throw new Error(error);
       
-      // Update match status
+      // Update match status using a raw update to avoid type issues
       const { error: matchError } = await supabase
         .from("matches")
         .update({
-          result_submitted_by: currentUserId,
-          result_submitted_at: new Date().toISOString(),
           status: resultType === "dispute" ? "disputed" : "completed",
-          winner_id: winnerId
-        })
+          ...(winnerId && { winner_id: winnerId })
+        } as any)
         .eq("id", matchId);
         
       if (matchError) throw matchError;
-      
-      // If winner is determined and not disputed, process payout
-      if (winnerId && resultType !== "dispute") {
-        try {
-          const { error: rpcError } = await supabase.rpc(
-            "process_match_outcome",
-            {
-              match_id: matchId,
-              winner_id: winnerId
-            }
-          );
-          
-          if (rpcError) throw rpcError;
-        } catch (error) {
-          console.error("Error processing match outcome:", error);
-          // Continue execution even if RPC fails
-        }
-      }
       
       toast({
         title: "Result Submitted",

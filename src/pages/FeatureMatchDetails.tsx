@@ -30,7 +30,7 @@ const FeatureMatchDetails = () => {
   const [hostProfile, setHostProfile] = useState<any>(null);
   const [opponentProfile, setOpponentProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [currentUserWallet, setCurrentUserWallet] = useState<any>(null);
+  const [currentUserBalance, setCurrentUserBalance] = useState<number>(0);
   const [isJoining, setIsJoining] = useState(false);
   const { toast } = useToast();
   
@@ -47,22 +47,24 @@ const FeatureMatchDetails = () => {
         if (matchError) throw matchError;
         setMatch(matchData);
         
-        // Get host profile
+        // Get host profile - use created_by as fallback for host_id
+        const hostId = (matchData as any).host_id || matchData.created_by;
         const { data: hostData, error: hostError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", matchData.host_id)
+          .eq("id", hostId)
           .single();
         
         if (hostError) throw hostError;
         setHostProfile(hostData);
         
         // Get opponent profile if exists
-        if (matchData.opponent_id) {
+        const opponentId = (matchData as any).opponent_id;
+        if (opponentId) {
           const { data: opponentData, error: opponentError } = await supabase
             .from("profiles")
             .select("*")
-            .eq("id", matchData.opponent_id)
+            .eq("id", opponentId)
             .single();
           
           if (!opponentError) {
@@ -70,16 +72,26 @@ const FeatureMatchDetails = () => {
           }
         }
         
-        // Get current user's session and wallet
+        // Get current user's session and calculate balance from transactions
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          const { data: walletData } = await supabase
-            .from("wallets")
-            .select("*")
+          const { data: transactions } = await supabase
+            .from("transactions")
+            .select("amount, type")
             .eq("user_id", session.user.id)
-            .single();
+            .eq("status", "completed");
           
-          setCurrentUserWallet(walletData);
+          // Calculate balance from transactions
+          let balance = 0;
+          transactions?.forEach(tx => {
+            if (tx.type === 'deposit' || tx.type === 'win' || tx.type === 'refund') {
+              balance += tx.amount;
+            } else {
+              balance -= tx.amount;
+            }
+          });
+          
+          setCurrentUserBalance(balance);
         }
         
         setLoading(false);
@@ -116,9 +128,10 @@ const FeatureMatchDetails = () => {
       }
       
       const userId = session.user.id;
+      const betAmount = (match as any).bet_amount || match.entry_fee;
       
       // Check user has enough balance
-      if (!currentUserWallet || currentUserWallet.balance < match.bet_amount) {
+      if (currentUserBalance < betAmount) {
         toast({
           title: "Insufficient Funds",
           description: "Please add funds to your wallet to join this match",
@@ -129,7 +142,8 @@ const FeatureMatchDetails = () => {
       }
       
       // Check user is not the host
-      if (userId === match.host_id) {
+      const hostId = (match as any).host_id || match.created_by;
+      if (userId === hostId) {
         toast({
           title: "Cannot Join Own Match",
           description: "You cannot join a match you created",
@@ -140,7 +154,7 @@ const FeatureMatchDetails = () => {
       }
       
       // Check match is still available
-      if (match.status !== "pending" || match.opponent_id) {
+      if (match.status !== "open" || (match as any).opponent_id) {
         toast({
           title: "Match Unavailable",
           description: "This match is no longer available to join",
@@ -150,45 +164,32 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      // Update the match with the opponent first
+      // Update the match with the opponent
       const { error: matchError } = await supabase
         .from("matches")
         .update({ 
-          opponent_id: userId,
-          status: "in_progress",
+          status: "active",
           start_time: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .eq("id", matchId);
       
       if (matchError) throw matchError;
       
-      // Deduct the bet amount from the user's wallet
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ 
-          balance: currentUserWallet.balance - match.bet_amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", currentUserWallet.id);
-      
-      if (walletError) throw walletError;
-      
-      // Create transaction record
+      // Create transaction record for bet
       const { error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          wallet_id: currentUserWallet.id,
-          amount: -match.bet_amount,
-          transaction_type: "bet", // Use transaction_type field instead of type
+          user_id: userId,
+          amount: betAmount,
+          type: "bet",
           status: "completed",
           description: `Bet placed on match ${matchId}`,
-          payment_method: "wallet"
+          match_id: matchId
         });
       
       if (transactionError) {
         console.error("Transaction error:", transactionError);
-        // Continue even if the transaction record fails since we've already updated the wallet
       }
       
       // Reload the match data
@@ -210,14 +211,8 @@ const FeatureMatchDetails = () => {
       
       setOpponentProfile(opponentData);
       
-      // Get updated wallet
-      const { data: updatedWallet } = await supabase
-        .from("wallets")
-        .select("*")
-        .eq("id", currentUserWallet.id)
-        .single();
-      
-      setCurrentUserWallet(updatedWallet);
+      // Update balance
+      setCurrentUserBalance(currentUserBalance - betAmount);
       
       toast({
         title: "Match Joined!",
@@ -267,13 +262,13 @@ const FeatureMatchDetails = () => {
   // Determine match status display
   const getStatusDisplay = () => {
     switch (match.status) {
-      case "pending":
+      case "open":
         return (
           <div className="bg-yellow-600/20 text-yellow-500 px-3 py-1 rounded-full text-sm font-medium">
             Waiting for opponent
           </div>
         );
-      case "in_progress":
+      case "active":
         return (
           <div className="bg-green-600/20 text-green-500 px-3 py-1 rounded-full text-sm font-medium animate-pulse">
             In Progress
@@ -302,6 +297,9 @@ const FeatureMatchDetails = () => {
     }
   };
   
+  const betAmount = (match as any).bet_amount || match.entry_fee;
+  const mapName = (match as any).map_name || "Unknown Map";
+  
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12">
@@ -326,7 +324,7 @@ const FeatureMatchDetails = () => {
                 <h3 className="text-gray-400 text-sm mb-2">Map</h3>
                 <div className="flex items-center">
                   <Map className="text-tacktix-blue mr-2 h-5 w-5" />
-                  <span className="text-white font-medium">{match.map_name}</span>
+                  <span className="text-white font-medium">{mapName}</span>
                 </div>
               </div>
             </div>
@@ -334,34 +332,29 @@ const FeatureMatchDetails = () => {
             <div className="space-y-4">
               <div className="bg-tacktix-dark-light rounded-lg p-4">
                 <h3 className="text-gray-400 text-sm mb-2">Bet Amount</h3>
-                <div className="text-tacktix-blue font-bold text-xl">₦{match.bet_amount.toFixed(2)}</div>
+                <div className="text-tacktix-blue font-bold text-xl">₦{betAmount.toFixed(2)}</div>
               </div>
               
               <div className="bg-tacktix-dark-light rounded-lg p-4">
                 <h3 className="text-gray-400 text-sm mb-2">Potential Winnings</h3>
-                <div className="text-green-500 font-bold text-xl">₦{(match.bet_amount * 2).toFixed(2)}</div>
+                <div className="text-green-500 font-bold text-xl">₦{(betAmount * 2).toFixed(2)}</div>
               </div>
             </div>
             
             <div className="space-y-4">
               <div className="bg-tacktix-dark-light rounded-lg p-4">
-                <h3 className="text-gray-400 text-sm mb-2">Lobby Code</h3>
+                <h3 className="text-gray-400 text-sm mb-2">Entry Fee</h3>
                 <div className="font-mono bg-tacktix-dark p-2 rounded border border-tacktix-blue/30 text-white">
-                  {match.lobby_code}
+                  ₦{match.entry_fee.toFixed(2)}
                 </div>
               </div>
               
               <div className="bg-tacktix-dark-light rounded-lg p-4">
-                <h3 className="text-gray-400 text-sm mb-2">
-                  {match.completion_deadline ? "Time Remaining" : "Created On"}
-                </h3>
+                <h3 className="text-gray-400 text-sm mb-2">Created On</h3>
                 <div className="flex items-center">
                   <Clock className="text-tacktix-blue mr-2 h-5 w-5" />
                   <span className="text-white font-medium">
-                    {match.completion_deadline 
-                      ? formatTimeRemaining(match.completion_deadline)
-                      : new Date(match.created_at).toLocaleString()
-                    }
+                    {new Date(match.created_at).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -388,11 +381,6 @@ const FeatureMatchDetails = () => {
                   )}
                 </div>
                 
-                {/* VS Divider */}
-                <div className="hidden md:flex items-center justify-center -mx-4">
-                  <div className="bg-tacktix-blue/30 w-0.5 h-full"></div>
-                </div>
-                
                 {/* Opponent Player or Join Button */}
                 {opponentProfile ? (
                   <div className="flex flex-col items-center text-center p-4 rounded-lg bg-tacktix-dark">
@@ -409,7 +397,7 @@ const FeatureMatchDetails = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-tacktix-dark border-2 border-dashed border-gray-700">
-                    {match.status === "pending" ? (
+                    {match.status === "open" ? (
                       <>
                         <p className="text-gray-400 mb-4">This match is waiting for an opponent to join</p>
                         <Button 
@@ -428,11 +416,7 @@ const FeatureMatchDetails = () => {
                           )}
                         </Button>
                         <p className="text-xs text-gray-500 mt-2">
-                          {currentUserWallet ? (
-                            <>Balance: ₦{currentUserWallet.balance.toFixed(2)}</>
-                          ) : (
-                            <>Sign in to join</>
-                          )}
+                          Balance: ₦{currentUserBalance.toFixed(2)}
                         </p>
                       </>
                     ) : (
@@ -469,7 +453,7 @@ const FeatureMatchDetails = () => {
                   Go Back
                 </Button>
                 
-                {match.status === "in_progress" && (
+                {match.status === "active" && (
                   <Button variant="gradient">
                     Submit Result
                   </Button>

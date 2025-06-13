@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,11 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 interface Transaction {
   id: string;
   amount: number;
-  transaction_type: string;
+  type: string;
   status: string;
-  payment_method: string;
   created_at: string;
-  details: any;
+  description: string | null;
 }
 
 const TransactionList = () => {
@@ -38,41 +38,21 @@ const TransactionList = () => {
       
       if (!session) return;
       
-      // Get user's wallet
-      const { data: walletData, error: walletError } = await supabase
-        .from("wallets")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .single();
-      
-      if (walletError) throw walletError;
-      
       let query = supabase
         .from("transactions")
         .select("*")
-        .eq("wallet_id", walletData.id)
+        .eq("user_id", session.user.id)
         .order("created_at", { ascending: false });
         
       if (filter !== "all") {
-        query = query.eq("transaction_type", filter);
+        query = query.eq("type", filter);
       }
       
       const { data, error } = await query;
       
       if (error) throw error;
       
-      // Transform the data to match our Transaction interface
-      const transformedData = (data || []).map((item: any) => ({
-        id: item.id,
-        amount: item.amount,
-        transaction_type: item.transaction_type || item.type,
-        status: item.status,
-        payment_method: item.payment_method || 'system',
-        created_at: item.created_at,
-        details: item.details
-      }));
-      
-      setTransactions(transformedData);
+      setTransactions(data || []);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     } finally {
@@ -84,9 +64,9 @@ const TransactionList = () => {
     if (!searchQuery) return transactions;
     
     return transactions.filter(tx => 
-      tx.transaction_type.includes(searchQuery.toLowerCase()) ||
-      tx.payment_method.includes(searchQuery.toLowerCase()) ||
-      tx.status.includes(searchQuery.toLowerCase())
+      tx.type.includes(searchQuery.toLowerCase()) ||
+      tx.status.includes(searchQuery.toLowerCase()) ||
+      (tx.description && tx.description.includes(searchQuery.toLowerCase()))
     );
   };
   
@@ -178,7 +158,7 @@ const TransactionList = () => {
                 <TableRow>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Method</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -188,18 +168,18 @@ const TransactionList = () => {
                   <TableRow key={tx.id} className="hover:bg-white/5">
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {renderTransactionIcon(tx.transaction_type)}
-                        <span>{formatTransactionType(tx.transaction_type)}</span>
+                        {renderTransactionIcon(tx.type)}
+                        <span>{formatTransactionType(tx.type)}</span>
                       </div>
                     </TableCell>
                     <TableCell>{formatDate(tx.created_at)}</TableCell>
-                    <TableCell className="capitalize">{tx.payment_method.replace('_', ' ')}</TableCell>
+                    <TableCell className="max-w-xs truncate">{tx.description || "No description"}</TableCell>
                     <TableCell className={`text-right font-medium ${
-                      tx.transaction_type === 'deposit' || tx.transaction_type === 'win' || tx.transaction_type === 'refund'
+                      tx.type === 'deposit' || tx.type === 'win' || tx.type === 'refund'
                         ? 'text-green-500' 
-                        : 'text-tacktix-red'
+                        : 'text-red-500'
                     }`}>
-                      {tx.transaction_type === 'deposit' || tx.transaction_type === 'win' || tx.transaction_type === 'refund'
+                      {tx.type === 'deposit' || tx.type === 'win' || tx.type === 'refund'
                         ? `+₦${tx.amount.toLocaleString()}`
                         : `-₦${tx.amount.toLocaleString()}`}
                     </TableCell>
