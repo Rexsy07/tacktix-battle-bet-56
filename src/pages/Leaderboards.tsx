@@ -1,206 +1,230 @@
 
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import LeaderboardTable from "@/components/ui/LeaderboardTable";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Search, Trophy, Award, TrendingUp, Gamepad, Target, Loader2 } from "lucide-react";
+import { Trophy, TrendingUp, Target, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface LeaderboardPlayer {
-  position: number;
-  name: string;
-  matches: number;
-  winRate: string;
-  earnings: string;
+  id: string;
+  username: string;
+  avatar_url: string;
+  wins: number;
+  total_matches: number;
+  total_earnings: number;
+  rating: number;
+  win_rate: number;
 }
 
 const Leaderboards = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [overallTopPlayers, setOverallTopPlayers] = useState<LeaderboardPlayer[]>([]);
-  const [sndChampions, setSndChampions] = useState<LeaderboardPlayer[]>([]);
-  const [hardpointKings, setHardpointKings] = useState<LeaderboardPlayer[]>([]);
-  const [brKillers, setBrKillers] = useState<LeaderboardPlayer[]>([]);
-  
-  useEffect(() => {
-    const fetchLeaderboardData = async () => {
-      setLoading(true);
-      try {
-        // Fetch overall leaderboard
-        const { data: overallData, error: overallError } = await supabase
-          .from('leaderboard_stats')
-          .select(`
-            *,
-            profiles:id(username, avatar_url)
-          `)
-          .order('total_earnings', { ascending: false })
-          .limit(10);
+  const [topEarners, setTopEarners] = useState<LeaderboardPlayer[]>([]);
+  const [topWinners, setTopWinners] = useState<LeaderboardPlayer[]>([]);
+  const [topRated, setTopRated] = useState<LeaderboardPlayer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-        if (overallError) throw overallError;
-        
-        // Format data
-        const formattedOverallData = overallData.map((player, index) => ({
-          position: index + 1,
-          name: player.profiles?.username || "Unknown Player",
-          matches: player.matches_played,
-          winRate: player.matches_played > 0 
-            ? `${Math.round((player.matches_won / player.matches_played) * 100)}%` 
-            : "0%",
-          earnings: `₦${player.total_earnings.toFixed(2)}`
-        }));
-        
-        setOverallTopPlayers(formattedOverallData);
-        
-        // For demo purposes, we'll use the same data for other tabs
-        // In a real implementation, you would filter by game mode
-        // assuming we have that data in the database
-        setSndChampions(formattedOverallData.slice(0, 7));
-        setHardpointKings(formattedOverallData.slice(2, 9));
-        setBrKillers(formattedOverallData.slice(1, 8));
-      } catch (error) {
-        console.error("Error fetching leaderboard data:", error);
-      } finally {
-        setLoading(false);
+  useEffect(() => {
+    fetchLeaderboards();
+  }, []);
+
+  const fetchLeaderboards = async () => {
+    try {
+      // Fetch profiles with calculated win rates
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url, wins, total_matches, total_earnings, rating")
+        .gt("total_matches", 0)
+        .order("total_earnings", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const playersWithWinRate = profiles?.map(player => ({
+        ...player,
+        win_rate: player.total_matches > 0 ? (player.wins / player.total_matches) * 100 : 0
+      })) || [];
+
+      // Top earners (already sorted by total_earnings)
+      setTopEarners(playersWithWinRate.slice(0, 10));
+
+      // Top winners (sort by wins)
+      const topWinnersList = [...playersWithWinRate]
+        .sort((a, b) => b.wins - a.wins)
+        .slice(0, 10);
+      setTopWinners(topWinnersList);
+
+      // Top rated (sort by rating)
+      const topRatedList = [...playersWithWinRate]
+        .sort((a, b) => b.rating - a.rating)
+        .slice(0, 10);
+      setTopRated(topRatedList);
+
+    } catch (error) {
+      console.error("Error fetching leaderboards:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Crown className="h-5 w-5 text-yellow-500" />;
+      case 2:
+        return <Trophy className="h-5 w-5 text-gray-400" />;
+      case 3:
+        return <Trophy className="h-5 w-5 text-orange-500" />;
+      default:
+        return <span className="h-5 w-5 flex items-center justify-center text-sm font-bold text-gray-400">#{rank}</span>;
+    }
+  };
+
+  const getRankBadgeColor = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      case 2:
+        return "bg-gray-400/10 text-gray-400 border-gray-400/20";
+      case 3:
+        return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+      default:
+        return "bg-gray-500/10 text-gray-500 border-gray-500/20";
+    }
+  };
+
+  const LeaderboardTable = ({ players, type }: { players: LeaderboardPlayer[], type: 'earnings' | 'wins' | 'rating' }) => {
+    const getValue = (player: LeaderboardPlayer) => {
+      switch (type) {
+        case 'earnings':
+          return `₦${player.total_earnings.toLocaleString()}`;
+        case 'wins':
+          return `${player.wins} wins`;
+        case 'rating':
+          return `${player.rating} pts`;
+        default:
+          return '';
       }
     };
 
-    fetchLeaderboardData();
-  }, []);
+    const getSecondaryValue = (player: LeaderboardPlayer) => {
+      switch (type) {
+        case 'earnings':
+          return `${player.total_matches} matches • ${player.win_rate.toFixed(1)}% win rate`;
+        case 'wins':
+          return `${player.total_matches} matches • ₦${player.total_earnings.toLocaleString()}`;
+        case 'rating':
+          return `${player.wins} wins • ${player.win_rate.toFixed(1)}% win rate`;
+        default:
+          return '';
+      }
+    };
 
-  // Filter players based on search query
-  const filterPlayers = (players: LeaderboardPlayer[]) => {
-    if (!searchQuery) return players;
-    return players.filter(player => 
-      player.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return (
+      <div className="space-y-4">
+        {players.map((player, index) => (
+          <div key={player.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+            <div className="flex items-center gap-3">
+              {getRankIcon(index + 1)}
+              <Badge variant="outline" className={getRankBadgeColor(index + 1)}>
+                #{index + 1}
+              </Badge>
+            </div>
+            
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={player.avatar_url} />
+              <AvatarFallback>{player.username?.[0]?.toUpperCase()}</AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-medium">{player.username}</h3>
+                {index < 3 && (
+                  <Badge variant="outline" className={getRankBadgeColor(index + 1)}>
+                    Top {index + 1}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-gray-400">{getSecondaryValue(player)}</p>
+            </div>
+            
+            <div className="text-right">
+              <p className="font-bold text-tacktix-blue">{getValue(player)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     );
   };
-  
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-tacktix-blue"></div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
-      <div className="py-6">
-        <div className="container max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold mb-2">Leaderboards</h1>
-              <p className="text-gray-400">Track the top performing players across different game modes</p>
-            </div>
-            
-            <div className="mt-4 md:mt-0 relative w-full md:w-64">
-              <Input
-                type="text"
-                placeholder="Search players..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-tacktix-dark-light text-white border-tacktix-dark-light focus:border-tacktix-blue"
-              />
-              <Search size={16} className="absolute left-3 top-3 text-gray-400" />
-            </div>
-          </div>
-          
-          <div className="glass-card rounded-xl overflow-hidden">
-            {loading ? (
-              <div className="flex justify-center items-center p-16">
-                <Loader2 className="h-10 w-10 animate-spin text-tacktix-blue" />
-              </div>
-            ) : (
-              <Tabs defaultValue="overall">
-                <div className="p-4 border-b border-white/10">
-                  <TabsList className="grid grid-cols-2 md:grid-cols-4">
-                    <TabsTrigger value="overall" className="flex items-center">
-                      <Trophy size={16} className="mr-2" />
-                      <span className="hidden md:inline">Overall</span>
-                      <span className="md:hidden">All</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="snd" className="flex items-center">
-                      <Target size={16} className="mr-2" />
-                      <span className="hidden md:inline">Search & Destroy</span>
-                      <span className="md:hidden">S&D</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="hardpoint" className="flex items-center">
-                      <Award size={16} className="mr-2" />
-                      <span className="hidden md:inline">Hardpoint</span>
-                      <span className="md:hidden">HP</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="br" className="flex items-center">
-                      <Gamepad size={16} className="mr-2" />
-                      <span className="hidden md:inline">Battle Royale</span>
-                      <span className="md:hidden">BR</span>
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                <TabsContent value="overall" className="m-0">
-                  <div className="p-5">
-                    <div className="flex items-center mb-4">
-                      <TrendingUp size={18} className="text-tacktix-blue mr-2" />
-                      <h3 className="text-lg font-semibold">Top Overall Earners</h3>
-                    </div>
-                    <LeaderboardTable 
-                      players={filterPlayers(overallTopPlayers)} 
-                      title="" 
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="snd" className="m-0">
-                  <div className="p-5">
-                    <div className="flex items-center mb-4">
-                      <Target size={18} className="text-tacktix-blue mr-2" />
-                      <h3 className="text-lg font-semibold">Search & Destroy Champions</h3>
-                    </div>
-                    <LeaderboardTable 
-                      players={filterPlayers(sndChampions)} 
-                      title="" 
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="hardpoint" className="m-0">
-                  <div className="p-5">
-                    <div className="flex items-center mb-4">
-                      <Award size={18} className="text-tacktix-blue mr-2" />
-                      <h3 className="text-lg font-semibold">Hardpoint Kings</h3>
-                    </div>
-                    <LeaderboardTable 
-                      players={filterPlayers(hardpointKings)} 
-                      title="" 
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="br" className="m-0">
-                  <div className="p-5">
-                    <div className="flex items-center mb-4">
-                      <Gamepad size={18} className="text-tacktix-blue mr-2" />
-                      <h3 className="text-lg font-semibold">Battle Royale Top Players</h3>
-                    </div>
-                    <LeaderboardTable 
-                      players={filterPlayers(brKillers)} 
-                      title="" 
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-            )}
-          </div>
-          
-          <div className="mt-8 glass-card rounded-xl p-6">
-            <div className="flex items-center mb-4">
-              <Trophy size={18} className="text-tacktix-blue mr-2" />
-              <h3 className="text-lg font-semibold">Leaderboard Rules</h3>
-            </div>
-            
-            <div className="space-y-3 text-sm text-gray-300">
-              <p>• Leaderboards are updated in real-time as matches are completed</p>
-              <p>• Players must complete at least 5 matches to appear on the leaderboard</p>
-              <p>• Rankings are based on total earnings, win rate, and number of matches played</p>
-              <p>• Game mode specific leaderboards only count matches played in that mode</p>
-              <p>• Monthly leaderboards reset on the 1st of each month</p>
-              <p>• Top 3 players at the end of each month receive special rewards and badges</p>
-            </div>
-          </div>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold">Leaderboards</h1>
+          <p className="text-gray-400">See where you rank among the best players</p>
         </div>
+
+        <Tabs defaultValue="earnings" className="space-y-6">
+          <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
+            <TabsTrigger value="earnings">Top Earners</TabsTrigger>
+            <TabsTrigger value="wins">Most Wins</TabsTrigger>
+            <TabsTrigger value="rating">Highest Rated</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="earnings">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Top Earners
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LeaderboardTable players={topEarners} type="earnings" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wins">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Most Wins
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LeaderboardTable players={topWinners} type="wins" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="rating">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Highest Rated
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LeaderboardTable players={topRated} type="rating" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

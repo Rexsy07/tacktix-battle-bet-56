@@ -1,307 +1,255 @@
 
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  Clock,
-  Medal,
-  Trophy,
-  Wallet,
-  Eye,
-  X,
-  FileCheck,
-  CalendarDays,
-  Loader2
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getMatchStatusVariant, getStatusText, formatMatchDuration } from "@/utils/matchmaking-helpers";
-import { getUserMatchHistory, getUserMatchStats } from "@/utils/history-utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, Trophy, Target, TrendingUp, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
+
+interface UserStats {
+  matches_played: number;
+  matches_won: number;
+  win_rate: number;
+  total_earnings: number;
+}
+
+interface Match {
+  id: string;
+  title: string;
+  game_mode: string;
+  entry_fee: number;
+  prize_pool: number;
+  status: string;
+  created_at: string;
+  winner_id: string | null;
+}
 
 const History = () => {
-  const [activeTab, setActiveTab] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [matchHistory, setMatchHistory] = useState<any[]>([]);
-  const [matchStats, setMatchStats] = useState({
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [userStats, setUserStats] = useState<UserStats>({
     matches_played: 0,
     matches_won: 0,
     win_rate: 0,
     total_earnings: 0
   });
-  const [userId, setUserId] = useState<string | null>(null);
-  
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        window.location.href = "/sign-in";
-        return;
-      }
-      
-      setUserId(session.user.id);
-    };
-    
-    checkAuth();
-  }, []);
-  
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!userId) return;
-      
-      setLoading(true);
-      
-      // Fetch match stats
-      const statsResult = await getUserMatchStats(userId);
-      if (statsResult.success) {
-        setMatchStats(statsResult.data);
-      }
-      
-      // Fetch match history
-      const historyResult = await getUserMatchHistory(
-        userId, 
-        1, 
-        20, 
-        activeTab !== "all" ? activeTab : undefined
-      );
-      
-      if (historyResult.success) {
-        setMatchHistory(historyResult.data);
-      }
-      
-      setLoading(false);
-    };
-    
-    fetchData();
-  }, [userId, activeTab]);
-  
-  const getOpponent = (match: any) => {
-    if (!userId) return null;
-    return match.host_id === userId ? match.opponent : match.host;
-  };
-  
-  const isWinner = (match: any) => {
-    return match.winner_id === userId;
-  };
-  
-  const statsCards = [
-    {
-      title: "Matches Played",
-      value: matchStats.matches_played,
-      icon: <Clock className="h-8 w-8 text-blue-500" />,
-      desc: "Total matches"
-    },
-    {
-      title: "Matches Won",
-      value: matchStats.matches_won,
-      icon: <Trophy className="h-8 w-8 text-yellow-500" />,
-      desc: "Total victories"
-    },
-    {
-      title: "Win Rate",
-      value: `${matchStats.win_rate}%`,
-      icon: <Medal className="h-8 w-8 text-green-500" />,
-      desc: "Victory percentage"
-    },
-    {
-      title: "Total Earnings",
-      value: `₦${matchStats.total_earnings.toLocaleString()}`,
-      icon: <Wallet className="h-8 w-8 text-purple-500" />,
-      desc: "From won matches"
-    }
-  ];
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!userId || loading) {
-    return (
-      <Layout>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-6 text-gradient">Match History</h1>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
-                  <Skeleton className="h-8 w-8 rounded-full mb-4" />
-                  <Skeleton className="h-6 w-24 mb-2" />
-                  <Skeleton className="h-10 w-16 mb-2" />
-                  <Skeleton className="h-4 w-32" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          
-          <Card className="mb-8">
-            <CardHeader>
-              <Skeleton className="h-8 w-32 mb-2" />
-              <Skeleton className="h-4 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
+  useEffect(() => {
+    checkAuthAndFetchData();
+  }, []);
+
+  const checkAuthAndFetchData = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to view your history",
+        variant: "destructive",
+      });
+      navigate("/sign-in");
+      return;
+    }
+
+    await Promise.all([fetchUserStats(session.user.id), fetchUserMatches(session.user.id)]);
+  };
+
+  const fetchUserStats = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+
+      if (profile) {
+        setUserStats({
+          matches_played: profile.total_matches || 0,
+          matches_won: profile.wins || 0,
+          win_rate: profile.total_matches > 0 ? ((profile.wins || 0) / profile.total_matches) * 100 : 0,
+          total_earnings: profile.total_earnings || 0
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+    }
+  };
+
+  const fetchUserMatches = async (userId: string) => {
+    try {
+      // Get matches where user participated
+      const { data: participations, error: participationError } = await supabase
+        .from("match_participants")
+        .select("match_id")
+        .eq("user_id", userId);
+
+      if (participationError) throw participationError;
+
+      if (participations && participations.length > 0) {
+        const matchIds = participations.map(p => p.match_id);
+        
+        const { data: matchData, error: matchError } = await supabase
+          .from("matches")
+          .select("*")
+          .in("id", matchIds)
+          .order("created_at", { ascending: false });
+
+        if (matchError) throw matchError;
+
+        setMatches(matchData || []);
+      }
+    } catch (error) {
+      console.error("Error fetching user matches:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getMatchStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-500/10 text-green-500 border-green-500/20';
+      case 'active':
+        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'cancelled':
+        return 'bg-red-500/10 text-red-500 border-red-500/20';
+      default:
+        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-NG', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold">Match History</h1>
+          <p className="text-gray-400">Track your gaming performance and earnings</p>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-500/10 rounded-lg">
+                  <Target className="h-6 w-6 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Matches Played</p>
+                  <p className="text-2xl font-bold">{userStats.matches_played}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <Trophy className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Matches Won</p>
+                  <p className="text-2xl font-bold">{userStats.matches_won}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-500/10 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Win Rate</p>
+                  <p className="text-2xl font-bold">{userStats.win_rate.toFixed(1)}%</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-yellow-500/10 rounded-lg">
+                  <Calendar className="h-6 w-6 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Total Earnings</p>
+                  <p className="text-2xl font-bold">₦{userStats.total_earnings.toLocaleString()}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      </Layout>
-    );
-  }
 
-  return (
-    <Layout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-6 text-gradient">Match History</h1>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {statsCards.map((card, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  {card.icon}
-                </div>
-                <CardTitle className="text-xl mb-2">{card.title}</CardTitle>
-                <div className="text-3xl font-bold mb-2">{card.value}</div>
-                <CardDescription>{card.desc}</CardDescription>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        
-        <Card className="mb-8">
+        {/* Match History */}
+        <Card>
           <CardHeader>
             <CardTitle>Recent Matches</CardTitle>
-            <CardDescription>Review your most recent games and their outcomes</CardDescription>
-            
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full sm:w-auto bg-tacktix-dark-deeper">
-                <TabsTrigger value="all">All Matches</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-                <TabsTrigger value="in_progress">In Progress</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="disputed">Disputed</TabsTrigger>
-              </TabsList>
-            </Tabs>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            {isLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-tacktix-blue"></div>
               </div>
-            ) : matchHistory.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Match Details</TableHead>
-                    <TableHead>Opponent</TableHead>
-                    <TableHead>Bet Amount</TableHead>
-                    <TableHead>Date & Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Result</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {matchHistory.map((match) => {
-                    const opponent = getOpponent(match);
-                    const winner = isWinner(match);
-                    
-                    return (
-                      <TableRow key={match.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{match.game_mode}</div>
-                            <div className="text-sm text-gray-400">{match.map_name}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={opponent?.avatar_url || ""} />
-                              <AvatarFallback>{opponent?.username?.substring(0, 2) || "?"}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{opponent?.username || "No Opponent"}</div>
-                              {match.start_time && (
-                                <div className="text-xs text-gray-400">
-                                  {formatMatchDuration(match.start_time, match.status === "completed" ? match.updated_at : null)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">₦{match.bet_amount.toLocaleString()}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
-                            <span>{new Date(match.created_at).toLocaleDateString()}</span>
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {new Date(match.created_at).toLocaleTimeString()}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getMatchStatusVariant(match.status)}>
-                            {getStatusText(match.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {match.status === "completed" ? (
-                            winner ? (
-                              <div className="flex items-center text-green-500">
-                                <Trophy className="h-4 w-4 mr-1" />
-                                <span>Won</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center text-red-500">
-                                <X className="h-4 w-4 mr-1" />
-                                <span>Lost</span>
-                              </div>
-                            )
-                          ) : match.status === "disputed" ? (
-                            <div className="flex items-center text-yellow-500">
-                              <FileCheck className="h-4 w-4 mr-1" />
-                              <span>Disputed</span>
-                            </div>
-                          ) : (
-                            <div className="text-gray-400">-</div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Link to={`/match/${match.id}`}>
-                            <Button variant="outline" size="sm" className="h-8 px-3">
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              View
-                            </Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            ) : matches.length > 0 ? (
+              <div className="space-y-4">
+                {matches.map((match) => (
+                  <div key={match.id} className="flex items-center justify-between p-4 border border-white/10 rounded-lg hover:bg-white/5 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-medium">{match.title}</h3>
+                        <Badge variant="outline" className={getMatchStatusColor(match.status)}>
+                          {match.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-400">
+                        <span>{match.game_mode}</span>
+                        <span>Entry: ₦{match.entry_fee.toLocaleString()}</span>
+                        <span>Prize: ₦{match.prize_pool.toLocaleString()}</span>
+                        <span>{formatDate(match.created_at)}</span>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/match-details/${match.id}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <div className="text-center py-12 bg-tacktix-dark-lighter rounded-lg">
-                <Clock className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                <h3 className="text-xl font-medium mb-2">No Match History</h3>
-                <p className="text-gray-400 max-w-md mx-auto mb-4">
-                  You haven't played any matches yet. Join a match to start building your history.
-                </p>
-                <Link to="/matchmaking">
-                  <Button variant="gradient">
-                    Find Matches
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+              <div className="text-center py-12">
+                <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">No Matches Yet</h3>
+                <p className="text-gray-400 mb-4">Start playing to build your match history!</p>
+                <Button onClick={() => navigate("/matchmaking")}>
+                  Find a Match
+                </Button>
               </div>
             )}
           </CardContent>

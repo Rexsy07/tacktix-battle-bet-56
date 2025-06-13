@@ -2,114 +2,135 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, CreditCard, Map, Trophy, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { Users, Calendar, DollarSign, Trophy, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+
+interface Match {
+  id: string;
+  title: string;
+  description: string;
+  game_mode: string;
+  entry_fee: number;
+  prize_pool: number;
+  max_players: number;
+  current_players: number;
+  status: string;
+  scheduled_time: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface Profile {
+  id: string;
+  username: string;
+  avatar_url: string;
+  total_earnings: number;
+}
 
 const JoinMatch = () => {
-  const { id } = useParams();
+  const { matchId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [joining, setJoining] = useState(false);
-  const [matchDetails, setMatchDetails] = useState<any>(null);
-  const [walletBalance, setWalletBalance] = useState<number>(0);
-  const [lobbyCodeInput, setLobbyCodeInput] = useState("");
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [userWalletId, setUserWalletId] = useState<string | null>(null);
+  const [match, setMatch] = useState<Match | null>(null);
+  const [participants, setParticipants] = useState<Profile[]>([]);
+  const [userBalance, setUserBalance] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Check if user is authenticated
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          toast({
-            title: "Authentication required",
-            description: "Please sign in to join matches",
-            variant: "destructive",
-          });
-          navigate("/sign-in");
-          return;
-        }
-        
-        setCurrentUser({
-          id: session.user.id
-        });
+    if (matchId) {
+      fetchMatchDetails();
+      fetchParticipants();
+      fetchUserBalance();
+    }
+  }, [matchId]);
 
-        // Fetch match details
-        const { data: matchData, error: matchError } = await supabase
-          .from("matches")
-          .select(`
-            *,
-            host:profiles!matches_host_id_fkey(id, username, avatar_url),
-            opponent:profiles!matches_opponent_id_fkey(id, username, avatar_url)
-          `)
-          .eq("id", id)
-          .single();
-
-        if (matchError) {
-          console.error("Match fetch error:", matchError);
-          throw new Error("Could not find match details");
-        }
-        
-        if (!matchData) {
-          toast({
-            title: "Match not found",
-            description: "The match you're looking for doesn't exist",
-            variant: "destructive",
-          });
-          navigate("/matchmaking");
-          return;
-        }
-        
-        setMatchDetails(matchData);
-        
-        // Fetch user's wallet balance and wallet ID
-        const { data: walletData, error: walletError } = await supabase
-          .from("wallets")
-          .select("id, balance")
-          .eq("user_id", session.user.id)
-          .single();
-          
-        if (walletError) {
-          console.error("Wallet fetch error:", walletError);
-          throw new Error("Could not fetch wallet balance");
-        }
-        
-        setWalletBalance(walletData?.balance || 0);
-        setUserWalletId(walletData?.id || null);
-      } catch (error: any) {
-        console.error("Error fetching data:", error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load match details",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, [id, navigate, toast]);
-  
-  const handleJoinMatch = async () => {
-    if (joining) return;
-    
+  const fetchMatchDetails = async () => {
     try {
-      setJoining(true);
+      const { data, error } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("id", matchId)
+        .single();
+
+      if (error) throw error;
+
+      setMatch(data);
+    } catch (error) {
+      console.error("Error fetching match:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load match details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchParticipants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("match_participants")
+        .select(`
+          user_id,
+          profiles!inner(id, username, avatar_url, total_earnings)
+        `)
+        .eq("match_id", matchId);
+
+      if (error) throw error;
+
+      const participantProfiles = data?.map((p: any) => p.profiles) || [];
+      setParticipants(participantProfiles);
+    } catch (error) {
+      console.error("Error fetching participants:", error);
+    }
+  };
+
+  const fetchUserBalance = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Calculate balance from transactions
+      const { data: transactions, error } = await supabase
+        .from("transactions")
+        .select("amount, type")
+        .eq("user_id", session.user.id)
+        .eq("status", "completed");
+
+      if (error) throw error;
+
+      let balance = 0;
+      transactions?.forEach(tx => {
+        if (tx.type === 'deposit' || tx.type === 'win' || tx.type === 'refund') {
+          balance += tx.amount;
+        } else {
+          balance -= tx.amount;
+        }
+      });
+
+      setUserBalance(balance);
+    } catch (error) {
+      console.error("Error fetching balance:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleJoinMatch = async () => {
+    if (!match) return;
+
+    setIsJoining(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!currentUser) {
+      if (!session) {
         toast({
-          title: "Authentication required",
+          title: "Authentication Required",
           description: "Please sign in to join matches",
           variant: "destructive",
         });
@@ -117,371 +138,273 @@ const JoinMatch = () => {
         return;
       }
 
-      if (!userWalletId) {
+      // Check if user has sufficient balance
+      if (userBalance < match.entry_fee) {
         toast({
-          title: "Wallet not found",
-          description: "Your wallet could not be found",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Check if match is already full
-      if (matchDetails.opponent_id) {
-        toast({
-          title: "Match is full",
-          description: "This match already has an opponent",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Verify lobby code if entered
-      if (lobbyCodeInput && lobbyCodeInput !== matchDetails.lobby_code) {
-        toast({
-          title: "Invalid Lobby Code",
-          description: "The lobby code you entered is incorrect",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Check if user has enough balance
-      if (walletBalance < matchDetails.bet_amount) {
-        toast({
-          title: "Insufficient funds",
-          description: "You don't have enough funds to join this match",
+          title: "Insufficient Balance",
+          description: "Please deposit funds to join this match",
           variant: "destructive",
         });
         navigate("/wallet");
         return;
       }
-      
-      const newBalance = walletBalance - matchDetails.bet_amount;
-      
-      // Update the match first
-      const { error: joinError } = await supabase
-        .from("matches")
-        .update({ 
-          opponent_id: currentUser.id,
-          status: "in_progress",
-          start_time: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", id);
-        
-      if (joinError) {
-        console.error("Match join error:", joinError);
-        throw new Error("Failed to join match. Please try again.");
+
+      // Check if match is still open and has space
+      if (match.status !== 'open' || match.current_players >= match.max_players) {
+        toast({
+          title: "Match Unavailable",
+          description: "This match is no longer available",
+          variant: "destructive",
+        });
+        return;
       }
-      
-      // Then update the wallet
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ 
-          balance: newBalance,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", userWalletId);
-        
-      if (walletError) {
-        console.error("Wallet update error:", walletError);
-        // If wallet update fails, revert match join
-        await supabase
-          .from("matches")
-          .update({ 
-            opponent_id: null,
-            status: "pending",
-            start_time: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", id);
-        throw new Error("Failed to update wallet. Please try again.");
+
+      // Check if user is already a participant
+      const isAlreadyParticipant = participants.some(p => p.id === session.user.id);
+      if (isAlreadyParticipant) {
+        toast({
+          title: "Already Joined",
+          description: "You have already joined this match",
+          variant: "destructive",
+        });
+        return;
       }
-      
-      // Create transaction record
+
+      // Join the match
+      const { error: participantError } = await supabase
+        .from("match_participants")
+        .insert({
+          match_id: match.id,
+          user_id: session.user.id,
+          status: 'joined'
+        });
+
+      if (participantError) throw participantError;
+
+      // Create entry fee transaction
       const { error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          wallet_id: userWalletId,
-          amount: -matchDetails.bet_amount,
-          transaction_type: "bet", // Use transaction_type instead of type
+          user_id: session.user.id,
+          type: "loss",
+          amount: match.entry_fee,
           status: "completed",
-          description: `Bet placed on match ${id}`,
-          payment_method: "wallet"
-        });
-      
-      if (transactionError) {
-        console.error("Transaction error:", transactionError);
-        console.log("Transaction payload:", {
-          wallet_id: userWalletId,
-          amount: -matchDetails.bet_amount,
-          transaction_type: "bet",
-          status: "completed"
-        });
-        
-        // Continue even if transaction record fails - we already updated the wallet and match
-        toast({
-          title: "Note",
-          description: "Transaction record couldn't be created, but match was joined",
-        });
-      }
-      
+          description: `Entry fee for match: ${match.title}`,
+          match_id: match.id
+        } as any);
+
+      if (transactionError) throw transactionError;
+
+      // Update match current players count
+      const { error: updateError } = await supabase
+        .from("matches")
+        .update({ 
+          current_players: match.current_players + 1,
+          status: match.current_players + 1 >= match.max_players ? 'full' : 'open'
+        })
+        .eq("id", match.id);
+
+      if (updateError) throw updateError;
+
       toast({
-        title: "Match joined successfully",
-        description: "You have successfully joined the match",
+        title: "Successfully Joined!",
+        description: "You have joined the match. Good luck!",
       });
-      
-      navigate(`/match/${id}`);
-    } catch (error: any) {
+
+      // Refresh data
+      await Promise.all([fetchMatchDetails(), fetchParticipants(), fetchUserBalance()]);
+
+    } catch (error) {
       console.error("Error joining match:", error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to join match",
+        title: "Failed to Join",
+        description: "There was an error joining the match",
         variant: "destructive",
       });
     } finally {
-      setJoining(false);
+      setIsJoining(false);
     }
   };
-  
-  if (loading) {
+
+  if (isLoading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-12 w-12 animate-spin text-tacktix-blue" />
-            <p className="text-lg">Loading match details...</p>
-          </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-tacktix-blue"></div>
         </div>
       </Layout>
     );
   }
-  
-  const isMatchHost = currentUser?.id === matchDetails?.host?.id;
-  
+
+  if (!match) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <h1 className="text-2xl font-bold mb-4">Match Not Found</h1>
+          <p className="text-gray-400 mb-6">The match you're looking for doesn't exist or has been removed.</p>
+          <Button onClick={() => navigate("/matchmaking")}>
+            Browse Matches
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
+
+  const canJoin = match.status === 'open' && match.current_players < match.max_players && userBalance >= match.entry_fee;
+  const isUserParticipant = participants.some(p => p.id);
+
   return (
     <Layout>
-      <div className="container max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Join Match</h1>
-          <p className="text-gray-400">Review the match details before joining</p>
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold">{match.title}</h1>
+          <p className="text-gray-400">{match.description}</p>
         </div>
-        
-        {matchDetails && (
-          <Card className="glass-card">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-2xl flex items-center">
-                    {matchDetails.game_mode}
-                    <Badge variant="outline" className="ml-3 bg-tacktix-blue/10">
-                      {matchDetails.bet_amount && `₦${Number(matchDetails.bet_amount).toLocaleString()}`}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    Hosted by {matchDetails.host?.username || "Unknown"}
-                  </CardDescription>
-                </div>
-                <Badge variant="badge" size="sm">
-                  {matchDetails.status === "pending" ? "Open to Join" : matchDetails.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-tacktix-dark-light p-4 rounded-lg flex items-center">
-                  <Map className="text-tacktix-blue mr-3" size={24} />
-                  <div>
-                    <div className="text-sm text-gray-400">Map</div>
-                    <div className="font-medium">{matchDetails.map_name}</div>
-                  </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Match Details */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Match Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Game Mode</span>
+                  <Badge variant="outline">{match.game_mode}</Badge>
                 </div>
                 
-                <div className="bg-tacktix-dark-light p-4 rounded-lg flex items-center">
-                  <Trophy className="text-tacktix-blue mr-3" size={24} />
-                  <div>
-                    <div className="text-sm text-gray-400">Prize Pool</div>
-                    <div className="font-medium">
-                      ₦{(Number(matchDetails.bet_amount) * 2).toLocaleString()}
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Entry Fee</span>
+                  <span className="font-medium">₦{match.entry_fee.toLocaleString()}</span>
                 </div>
                 
-                <div className="bg-tacktix-dark-light p-4 rounded-lg flex items-center">
-                  <Clock className="text-tacktix-blue mr-3" size={24} />
-                  <div>
-                    <div className="text-sm text-gray-400">Created</div>
-                    <div className="font-medium">
-                      {new Date(matchDetails.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border-t border-b border-white/10 py-4">
-                <h3 className="text-lg font-medium mb-4">Players</h3>
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={matchDetails.host?.avatar_url} />
-                    <AvatarFallback className="bg-tacktix-blue text-white">
-                      {matchDetails.host?.username?.charAt(0).toUpperCase() || "H"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">{matchDetails.host?.username || "Unknown"}</div>
-                    <div className="text-sm text-gray-400">Host</div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Prize Pool</span>
+                  <span className="font-medium text-green-500">₦{match.prize_pool.toLocaleString()}</span>
                 </div>
                 
-                <div className="flex items-center justify-center mt-4 mb-2">
-                  <div className="text-center px-6 py-2 bg-tacktix-dark-light rounded-full text-sm">
-                    VS
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Players</span>
+                  <span className="font-medium">{match.current_players}/{match.max_players}</span>
                 </div>
                 
-                <div className="flex items-center space-x-4">
-                  {matchDetails.opponent ? (
-                    <>
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={matchDetails.opponent?.avatar_url} />
-                        <AvatarFallback className="bg-tacktix-green text-white">
-                          {matchDetails.opponent?.username?.charAt(0).toUpperCase() || "O"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{matchDetails.opponent?.username}</div>
-                        <div className="text-sm text-gray-400">Opponent</div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className="bg-tacktix-dark-light text-gray-300">
-                          <Users size={20} />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">Waiting for opponent</div>
-                        <div className="text-sm text-tacktix-blue">This could be you!</div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-              
-              {isMatchHost && (
-                <div className="bg-tacktix-dark-light p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-2">Manage Lobby</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Lobby Code</label>
-                      <div className="flex gap-2">
-                        <Input 
-                          value={matchDetails.lobby_code} 
-                          readOnly 
-                          className="bg-tacktix-dark-deeper"
-                        />
-                        <Button
-                          variant="outline" 
-                          size="icon" 
-                          onClick={() => {
-                            navigator.clipboard.writeText(matchDetails.lobby_code);
-                            toast({
-                              title: "Copied!",
-                              description: "Lobby code copied to clipboard",
-                            });
-                          }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                          </svg>
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">Share this code with your opponent</p>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Match Instructions</label>
-                      <Textarea 
-                        className="bg-tacktix-dark-deeper resize-none h-24"
-                        placeholder="Provide any additional instructions for your opponent..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {!isMatchHost && !matchDetails.opponent && (
-                <div className="bg-tacktix-dark-light p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-2">Join Match</h3>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Enter Lobby Code</label>
-                    <Input 
-                      value={lobbyCodeInput} 
-                      onChange={(e) => setLobbyCodeInput(e.target.value)}
-                      placeholder="Enter the lobby code provided by the host" 
-                      className="bg-tacktix-dark-deeper"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">The lobby code is required to join this match</p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="p-4 bg-tacktix-dark-light rounded-lg">
-                <div className="flex items-start">
-                  <AlertCircle size={20} className="text-tacktix-blue mr-2 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium mb-1">Important Information</p>
-                    <p className="text-sm text-gray-400">
-                      By joining this match, you agree to bet ₦{Number(matchDetails.bet_amount).toLocaleString()} which will be locked until the match is completed. 
-                      You must follow all platform rules and provide valid evidence of match results.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            
-            <CardFooter className="flex flex-col sm:flex-row justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center text-sm">
-                <CreditCard size={16} className="mr-2 text-gray-400" />
-                <span className="text-gray-400">Your Balance:</span>
-                <span className="ml-2 font-medium">
-                  ₦{walletBalance.toLocaleString()}
-                </span>
-                {walletBalance < (matchDetails.bet_amount || 0) && (
-                  <Badge variant="destructive" className="ml-2 text-xs">
-                    Insufficient
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Status</span>
+                  <Badge variant={match.status === 'open' ? 'default' : 'secondary'}>
+                    {match.status}
                   </Badge>
-                )}
-              </div>
-              
-              <div className="flex space-x-3">
-                <Button variant="outline" onClick={() => navigate("/matchmaking")}>
-                  Back
-                </Button>
+                </div>
                 
-                {!isMatchHost && !matchDetails.opponent && (
-                  <Button 
-                    variant="gradient" 
+                {match.scheduled_time && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Scheduled</span>
+                    <span className="font-medium">
+                      {new Date(match.scheduled_time).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Participants */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Participants ({participants.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {participants.length > 0 ? (
+                  <div className="space-y-4">
+                    {participants.map((participant) => (
+                      <div key={participant.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                        <Avatar>
+                          <AvatarImage src={participant.avatar_url} />
+                          <AvatarFallback>{participant.username?.[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium">{participant.username}</p>
+                          <p className="text-sm text-gray-400">
+                            Earnings: ₦{participant.total_earnings?.toLocaleString() || '0'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-center py-4">
+                    No participants yet. Be the first to join!
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Join Match Sidebar */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Balance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-tacktix-blue">
+                  ₦{userBalance.toLocaleString()}
+                </div>
+                <p className="text-sm text-gray-400 mt-1">Available funds</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                {!canJoin && (
+                  <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-yellow-500">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">
+                        {userBalance < match.entry_fee 
+                          ? "Insufficient balance"
+                          : match.current_players >= match.max_players
+                          ? "Match is full"
+                          : "Match not available"
+                        }
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {isUserParticipant ? (
+                  <Button className="w-full" disabled>
+                    Already Joined
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
                     onClick={handleJoinMatch}
-                    disabled={joining || walletBalance < (matchDetails.bet_amount || 0)}
+                    disabled={!canJoin || isJoining}
                   >
-                    {joining ? (
-                      <>
-                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                        Joining...
-                      </>
-                    ) : (
-                      `Join for ₦${(matchDetails.bet_amount || 0).toLocaleString()}`
-                    )}
+                    {isJoining ? "Joining..." : `Join Match - ₦${match.entry_fee.toLocaleString()}`}
                   </Button>
                 )}
-              </div>
-            </CardFooter>
-          </Card>
-        )}
+
+                {userBalance < match.entry_fee && (
+                  <Button
+                    variant="outline"
+                    className="w-full mt-3"
+                    onClick={() => navigate("/wallet")}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Add Funds
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </Layout>
   );
