@@ -13,7 +13,7 @@ export const getFeaturedMatches = async (limit: number = 5) => {
         host:profiles!matches_host_id_fkey(*),
         opponent:profiles!matches_opponent_id_fkey(*)
       `)
-      .in("status", ["pending", "in_progress", "active"])
+      .in("status", ["open", "active"])
       .order("bet_amount", { ascending: false })
       .limit(limit);
       
@@ -42,7 +42,7 @@ export const getLiveMatches = async (limit: number = 6) => {
         host:profiles!matches_host_id_fkey(*),
         opponent:profiles!matches_opponent_id_fkey(*)
       `)
-      .in("status", ["in_progress", "active"])
+      .in("status", ["active"])
       .order("created_at", { ascending: false })
       .limit(limit);
       
@@ -60,23 +60,32 @@ export const getLiveMatches = async (limit: number = 6) => {
 };
 
 /**
- * Get leaderboard data
+ * Get leaderboard data from profiles table
  */
 export const getLeaderboardData = async (limit: number = 10) => {
   try {
     const { data, error } = await supabase
-      .from("leaderboard_stats")
-      .select(`
-        *,
-        profile:profiles(*)
-      `)
-      .gt("matches_played", 0)
+      .from("profiles")
+      .select("*")
+      .gt("total_matches", 0)
       .order("total_earnings", { ascending: false })
+      .order("wins", { ascending: false })
       .limit(limit);
       
     if (error) throw error;
     
-    return { success: true, data: data || [] };
+    // Transform the data to match expected format
+    const transformedData = data?.map(profile => ({
+      id: profile.id,
+      profile: profile,
+      matches_played: profile.total_matches || 0,
+      total_earnings: profile.total_earnings || 0,
+      win_rate: profile.total_matches > 0 
+        ? Math.round((profile.wins / profile.total_matches) * 100 * 10) / 10
+        : 0
+    })) || [];
+    
+    return { success: true, data: transformedData };
   } catch (error: any) {
     console.error("Error fetching leaderboard data:", error);
     return { 

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,45 +39,20 @@ const WithdrawForm = ({ currentBalance }: { currentBalance: number }) => {
         throw new Error("You must be logged in to make a withdrawal");
       }
       
-      // Get user's wallet
-      const { data: walletData, error: walletError } = await supabase
-        .from("wallets")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .single();
-      
-      if (walletError) throw walletError;
-      
       // Create a withdrawal transaction
       const { data: transaction, error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          wallet_id: walletData.id,
+          user_id: session.user.id,
           amount: withdrawAmount,
-          transaction_type: "withdrawal",
-          type: "withdrawal", // Adding the required type field
+          type: "withdrawal",
           status: "pending", // Withdrawals usually need approval
-          payment_method: "bank_transfer",
-          details: JSON.stringify({ 
-            bank_name: bankName,
-            account_number: accountNumber
-          })
+          description: `Withdrawal to ${bankName} - ${accountNumber}`
         })
         .select()
         .single();
       
       if (transactionError) throw transactionError;
-      
-      // Update wallet balance (deduct funds)
-      const { error: walletError2 } = await supabase.rpc(
-        "update_wallet_balance", 
-        { 
-          user_uuid: session.user.id, 
-          amount_to_add: -withdrawAmount 
-        }
-      );
-      
-      if (walletError2) throw walletError2;
       
       setIsSuccess(true);
       toast({

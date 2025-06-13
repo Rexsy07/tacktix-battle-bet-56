@@ -1,159 +1,169 @@
 
-import { useState } from "react";
-import { Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Star } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PlayerRatingProps {
-  playerName: string;
-  playerId: string;
   matchId: string;
-  playerAvatar?: string;
-  onRatingComplete: () => void;
+  playerId: string;
+  playerName: string;
+  currentUserId: string;
 }
 
-const PlayerRating = ({
-  playerName,
-  playerId,
-  matchId,
-  playerAvatar,
-  onRatingComplete
-}: PlayerRatingProps) => {
-  const [rating, setRating] = useState<number>(0);
-  const [hoverRating, setHoverRating] = useState<number>(0);
-  const [comment, setComment] = useState<string>("");
-  const [submitting, setSubmitting] = useState<boolean>(false);
+const PlayerRating = ({ matchId, playerId, playerName, currentUserId }: PlayerRatingProps) => {
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingRating, setExistingRating] = useState<any>(null);
   const { toast } = useToast();
-  
-  const handleRatingSubmit = async () => {
+
+  useEffect(() => {
+    fetchExistingRating();
+  }, [matchId, playerId, currentUserId]);
+
+  const fetchExistingRating = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("player_ratings")
+        .select("*")
+        .eq("match_id", matchId)
+        .eq("rated_id", playerId)
+        .eq("rater_id", currentUserId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setExistingRating(data);
+        setRating(data.rating);
+        setComment(data.comment || "");
+      }
+    } catch (error: any) {
+      console.error("Error fetching existing rating:", error);
+    }
+  };
+
+  const handleSubmitRating = async () => {
     if (rating === 0) {
       toast({
         title: "Rating Required",
-        description: "Please select a rating before submitting",
+        description: "Please select a rating before submitting.",
         variant: "destructive",
       });
       return;
     }
-    
-    setSubmitting(true);
-    
+
+    setIsSubmitting(true);
+
     try {
-      // Get current user
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("You must be signed in to rate a player");
+      const ratingData = {
+        match_id: matchId,
+        rated_id: playerId,
+        rater_id: currentUserId,
+        rating,
+        comment: comment.trim() || null,
+      };
+
+      let result;
+      if (existingRating) {
+        // Update existing rating
+        result = await supabase
+          .from("player_ratings")
+          .update(ratingData)
+          .eq("id", existingRating.id);
+      } else {
+        // Create new rating
+        result = await supabase
+          .from("player_ratings")
+          .insert(ratingData);
       }
-      
-      // Submit rating
-      const { error } = await supabase
-        .from("user_ratings")
-        .insert({
-          rater_id: session.user.id,
-          rated_id: playerId,
-          match_id: matchId,
-          rating: rating,
-          comment: comment.trim() || null
-        });
-      
-      if (error) throw error;
-      
+
+      if (result.error) throw result.error;
+
       toast({
         title: "Rating Submitted",
-        description: "Thank you for rating your opponent",
+        description: `You've successfully rated ${playerName}.`,
+        variant: "default",
       });
-      
-      // Inform parent component that rating is complete
-      onRatingComplete();
-      
+
+      // Refresh the rating data
+      await fetchExistingRating();
     } catch (error: any) {
+      console.error("Error submitting rating:", error);
       toast({
-        title: "Failed to Submit Rating",
-        description: error.message || "Something went wrong",
+        title: "Error",
+        description: error.message || "Failed to submit rating. Please try again.",
         variant: "destructive",
       });
-      console.error("Error submitting rating:", error);
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
-  
-  const renderStar = (position: number) => {
-    const filled = (hoverRating || rating) >= position;
-    
-    return (
-      <Star
-        key={position}
-        size={32}
-        className={`cursor-pointer transition-colors ${
-          filled ? "text-yellow-400 fill-yellow-400" : "text-gray-400"
-        }`}
-        onClick={() => setRating(position)}
-        onMouseEnter={() => setHoverRating(position)}
-        onMouseLeave={() => setHoverRating(0)}
-      />
-    );
-  };
-  
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <div className="h-14 w-14 rounded-full bg-tacktix-dark-light flex items-center justify-center overflow-hidden">
-          {playerAvatar ? (
-            <img src={playerAvatar} alt={playerName} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-lg font-medium">{playerName.charAt(0)}</span>
-          )}
-        </div>
-        <div>
-          <h3 className="text-lg font-medium">{playerName}</h3>
-          <p className="text-sm text-gray-400">Your opponent</p>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <label className="text-sm text-gray-400">How would you rate this player?</label>
-        <div className="flex space-x-2">
-          {[1, 2, 3, 4, 5].map(position => renderStar(position))}
-        </div>
-        <p className="text-sm text-gray-500">
-          {rating === 1 && "Poor experience"}
-          {rating === 2 && "Below average"}
-          {rating === 3 && "Average"}
-          {rating === 4 && "Good experience"}
-          {rating === 5 && "Excellent player"}
-        </p>
-      </div>
-      
-      <div className="space-y-2">
-        <label className="text-sm text-gray-400">Additional feedback (optional)</label>
-        <Textarea
-          placeholder="Share your experience with this player..."
-          className="bg-tacktix-dark-light resize-none"
-          value={comment}
-          onChange={e => setComment(e.target.value)}
-        />
-      </div>
-      
-      <Button
-        className="w-full"
-        onClick={handleRatingSubmit}
-        disabled={rating === 0 || submitting}
-      >
-        {submitting ? (
-          <span className="flex items-center">
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Submitting...
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Rate {playerName}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center space-x-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              onClick={() => setRating(star)}
+              onMouseEnter={() => setHoveredRating(star)}
+              onMouseLeave={() => setHoveredRating(0)}
+              className="p-1 transition-colors"
+            >
+              <Star
+                size={24}
+                className={`${
+                  star <= (hoveredRating || rating)
+                    ? "fill-yellow-500 text-yellow-500"
+                    : "text-gray-300"
+                } transition-colors`}
+              />
+            </button>
+          ))}
+          <span className="ml-2 text-sm text-gray-600">
+            {rating > 0 && `${rating}/5`}
           </span>
-        ) : (
-          "Submit Rating"
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="comment" className="text-sm font-medium">
+            Comment (optional)
+          </label>
+          <Textarea
+            id="comment"
+            placeholder="Share your thoughts about this player's performance..."
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        <Button
+          onClick={handleSubmitRating}
+          disabled={isSubmitting || rating === 0}
+          className="w-full"
+        >
+          {isSubmitting ? "Submitting..." : existingRating ? "Update Rating" : "Submit Rating"}
+        </Button>
+
+        {existingRating && (
+          <p className="text-xs text-gray-500 text-center">
+            You previously rated this player {existingRating.rating}/5
+          </p>
         )}
-      </Button>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
