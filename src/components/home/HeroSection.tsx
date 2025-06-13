@@ -1,29 +1,11 @@
 
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, DollarSign, Shield, Zap } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const HeroSection = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-    };
-    
-    checkAuth();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+  const { user } = useAuth();
 
   return (
     <div className="relative py-20 lg:py-32 overflow-hidden">
@@ -52,9 +34,9 @@ const HeroSection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <Link to={isAuthenticated ? "/matchmaking" : "/sign-up"}>
+            <Link to={user ? "/matchmaking" : "/sign-up"}>
               <Button variant="gradient" animation="pulseglow" size="xl" className="font-semibold">
-                {isAuthenticated ? "Find Matches" : "Get Started"}
+                {user ? "Find Matches" : "Get Started"}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>

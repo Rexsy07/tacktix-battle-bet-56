@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -7,13 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SignIn = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,8 +52,7 @@ const SignIn = () => {
         variant: "default",
       });
       
-      // Navigate to dashboard or home
-      navigate("/");
+      // Navigation will be handled by the auth context
     } catch (error: any) {
       toast({
         title: "Error",
@@ -55,6 +63,11 @@ const SignIn = () => {
       setIsLoading(false);
     }
   };
+
+  // Don't render if user is authenticated
+  if (user) {
+    return null;
+  }
 
   return (
     <Layout>

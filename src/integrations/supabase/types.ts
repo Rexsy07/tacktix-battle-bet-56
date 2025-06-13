@@ -9,7 +9,434 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      disputes: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          evidence_url: string | null
+          id: string
+          match_id: string
+          reason: string
+          reported_by: string
+          resolution: string | null
+          resolved_by: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          evidence_url?: string | null
+          id?: string
+          match_id: string
+          reason: string
+          reported_by: string
+          resolution?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          evidence_url?: string | null
+          id?: string
+          match_id?: string
+          reason?: string
+          reported_by?: string
+          resolution?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disputes_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disputes_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disputes_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_evidence: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          evidence_type: string
+          evidence_url: string
+          id: string
+          match_id: string
+          submitted_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          evidence_type: string
+          evidence_url: string
+          id?: string
+          match_id: string
+          submitted_by: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          evidence_type?: string
+          evidence_url?: string
+          id?: string
+          match_id?: string
+          submitted_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_evidence_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_evidence_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_participants: {
+        Row: {
+          id: string
+          joined_at: string | null
+          match_id: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          match_id: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          match_id?: string
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_participants_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_results: {
+        Row: {
+          deaths: number | null
+          evidence_url: string | null
+          id: string
+          kills: number | null
+          match_id: string
+          participant_id: string
+          placement: number | null
+          score: number | null
+          submitted_at: string | null
+        }
+        Insert: {
+          deaths?: number | null
+          evidence_url?: string | null
+          id?: string
+          kills?: number | null
+          match_id: string
+          participant_id: string
+          placement?: number | null
+          score?: number | null
+          submitted_at?: string | null
+        }
+        Update: {
+          deaths?: number | null
+          evidence_url?: string | null
+          id?: string
+          kills?: number | null
+          match_id?: string
+          participant_id?: string
+          placement?: number | null
+          score?: number | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_results_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_results_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "match_participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matches: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          current_players: number | null
+          description: string | null
+          end_time: string | null
+          entry_fee: number
+          game_mode: string
+          id: string
+          is_featured: boolean | null
+          max_players: number
+          prize_pool: number
+          scheduled_time: string | null
+          start_time: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          current_players?: number | null
+          description?: string | null
+          end_time?: string | null
+          entry_fee?: number
+          game_mode: string
+          id?: string
+          is_featured?: boolean | null
+          max_players?: number
+          prize_pool?: number
+          scheduled_time?: string | null
+          start_time?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          current_players?: number | null
+          description?: string | null
+          end_time?: string | null
+          entry_fee?: number
+          game_mode?: string
+          id?: string
+          is_featured?: boolean | null
+          max_players?: number
+          prize_pool?: number
+          scheduled_time?: string | null
+          start_time?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          match_id: string
+          rated_id: string
+          rater_id: string
+          rating: number
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          match_id: string
+          rated_id: string
+          rater_id: string
+          rating: number
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          match_id?: string
+          rated_id?: string
+          rater_id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_ratings_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_ratings_rated_id_fkey"
+            columns: ["rated_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_ratings_rater_id_fkey"
+            columns: ["rater_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          id: string
+          is_moderator: boolean | null
+          is_vip: boolean | null
+          losses: number | null
+          phone: string | null
+          rating: number | null
+          skill_level: string | null
+          total_earnings: number | null
+          total_matches: number | null
+          updated_at: string | null
+          username: string
+          wins: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          id: string
+          is_moderator?: boolean | null
+          is_vip?: boolean | null
+          losses?: number | null
+          phone?: string | null
+          rating?: number | null
+          skill_level?: string | null
+          total_earnings?: number | null
+          total_matches?: number | null
+          updated_at?: string | null
+          username: string
+          wins?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          id?: string
+          is_moderator?: boolean | null
+          is_vip?: boolean | null
+          losses?: number | null
+          phone?: string | null
+          rating?: number | null
+          skill_level?: string | null
+          total_earnings?: number | null
+          total_matches?: number | null
+          updated_at?: string | null
+          username?: string
+          wins?: number | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          match_id: string | null
+          status: string | null
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          match_id?: string | null
+          status?: string | null
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          match_id?: string | null
+          status?: string | null
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

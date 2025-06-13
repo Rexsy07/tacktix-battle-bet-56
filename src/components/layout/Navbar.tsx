@@ -1,36 +1,17 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, Wallet, Trophy, Home, History, Search, LogIn, LogOut, Shield, Flame } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Menu, X, User, History, Search, LogIn, LogOut, Shield, Flame, Home, Trophy } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Check authentication status on mount and when auth state changes
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-    };
-    
-    checkAuth();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,14 +28,11 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
+      await signOut();
       toast({
         title: "Logged out",
         description: "You've been successfully logged out",
       });
-      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -74,7 +52,7 @@ const Navbar = () => {
     { name: "Moderator", path: "/moderator-panel", icon: <Shield className="w-4 h-4 mr-2" />, showAlways: false },
   ];
 
-  const filteredNavLinks = navLinks.filter(link => link.showAlways || isAuthenticated);
+  const filteredNavLinks = navLinks.filter(link => link.showAlways || user);
 
   return (
     <nav
@@ -116,7 +94,7 @@ const Navbar = () => {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-3">
-            {isAuthenticated ? (
+            {user ? (
               <Button variant="ghost" size="sm" className="text-sm" onClick={handleLogout}>
                 <div className="flex items-center">
                   <LogOut className="w-4 h-4 mr-2" />
@@ -166,7 +144,7 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            {isAuthenticated ? (
+            {user ? (
               <Button variant="ghost" className="w-full text-sm justify-start" onClick={handleLogout}>
                 <div className="flex items-center">
                   <LogOut className="w-4 h-4 mr-2" />

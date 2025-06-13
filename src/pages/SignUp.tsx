@@ -55,12 +55,23 @@ const SignUp = () => {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Sign up with Supabase
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             username: formData.username,
             phone: formData.phone
@@ -78,8 +89,12 @@ const SignUp = () => {
         variant: "default",
       });
       
-      // Redirect to profile setup
-      navigate("/profile-setup");
+      // If user is automatically signed in, redirect to profile setup
+      if (data.user && !data.user.email_confirmed_at) {
+        navigate("/profile-setup");
+      } else if (data.user) {
+        navigate("/");
+      }
     } catch (error: any) {
       toast({
         title: "Error",

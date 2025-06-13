@@ -9,33 +9,16 @@ import Leaderboard from "@/components/home/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { getFeaturedMatches, getLiveMatches, getLeaderboardData, getGameModes } from "@/utils/home-utils";
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user } = useAuth();
   const [featuredMatches, setFeaturedMatches] = useState<any[]>([]);
   const [liveMatches, setLiveMatches] = useState<any[]>([]);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [gameModes, setGameModes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-    };
-    
-    checkAuth();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
   
   useEffect(() => {
     const fetchHomeData = async () => {
@@ -101,9 +84,9 @@ const Index = () => {
             <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
               Join thousands of Call of Duty Mobile players competing and earning real money on TacktixEdge.
             </p>
-            <Link to={isAuthenticated ? "/matchmaking" : "/sign-up"}>
+            <Link to={user ? "/matchmaking" : "/sign-up"}>
               <Button variant="gradient" animation="pulseglow" size="lg" className="font-semibold">
-                {isAuthenticated ? "Find Matches" : "Get Started Now"}
+                {user ? "Find Matches" : "Get Started Now"}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
