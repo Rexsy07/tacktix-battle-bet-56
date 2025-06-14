@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,20 +15,20 @@ import { formatTimeRemaining, generateLobbyCode } from "@/utils/matchmaking-help
 import { getUserBalance } from "@/utils/wallet-utils";
 
 const gameModes = [
-  { id: "snd", name: "Search & Destroy", icon: <Shield size={20} />, maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"] },
-  { id: "hp", name: "Hardpoint", icon: <Target size={20} />, maps: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"] },
-  { id: "dom", name: "Domination", icon: <Crosshair size={20} />, maps: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"] },
-  { id: "tdm", name: "Team Deathmatch", icon: <Swords size={20} />, maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"] },
-  { id: "br", name: "Battle Royale", icon: <Map size={20} />, maps: ["Isolated", "Alcatraz"] },
-  { id: "gf", name: "Gunfight", icon: <Trophy size={20} />, maps: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"] },
+  { id: "search_destroy", name: "Search & Destroy", icon: <Shield size={20} />, maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"] },
+  { id: "hardpoint", name: "Hardpoint", icon: <Target size={20} />, maps: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"] },
+  { id: "domination", name: "Domination", icon: <Crosshair size={20} />, maps: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"] },
+  { id: "team_deathmatch", name: "Team Deathmatch", icon: <Swords size={20} />, maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"] },
+  { id: "battle_royale", name: "Battle Royale", icon: <Map size={20} />, maps: ["Isolated", "Alcatraz"] },
+  { id: "gunfight", name: "Gunfight", icon: <Trophy size={20} />, maps: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"] },
 ];
 
 const teamSizes = [
-  { id: "1v1", name: "1v1", modes: ["snd", "tdm", "gf", "br"] },
-  { id: "2v2", name: "2v2", modes: ["snd", "tdm", "gf", "hp"] },
-  { id: "3v3", name: "3v3", modes: ["snd", "tdm", "hp", "dom"] },
-  { id: "5v5", name: "5v5", modes: ["snd", "tdm", "hp", "dom"] },
-  { id: "squads", name: "Squads", modes: ["br"] },
+  { id: "1v1", name: "1v1", modes: ["search_destroy", "team_deathmatch", "gunfight", "battle_royale"] },
+  { id: "2v2", name: "2v2", modes: ["search_destroy", "team_deathmatch", "gunfight", "hardpoint"] },
+  { id: "3v3", name: "3v3", modes: ["search_destroy", "team_deathmatch", "hardpoint", "domination"] },
+  { id: "5v5", name: "5v5", modes: ["search_destroy", "team_deathmatch", "hardpoint", "domination"] },
+  { id: "squads", name: "Squads", modes: ["battle_royale"] },
 ];
 
 const betAmounts = [1000, 2000, 3000, 5000, 10000];
@@ -36,7 +37,7 @@ const Matchmaking = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeMode, setActiveMode] = useState("snd");
+  const [activeMode, setActiveMode] = useState("search_destroy");
   const [selectedMap, setSelectedMap] = useState("");
   const [selectedTeamSize, setSelectedTeamSize] = useState("1v1");
   const [selectedBetAmount, setSelectedBetAmount] = useState(1000);
@@ -65,20 +66,32 @@ const Matchmaking = () => {
           setWalletBalance(balance);
         }
         
-        // Fetch matches that are still pending (no opponent yet)
+        // Fetch matches with host profile data - using a left join instead of foreign key reference
         const { data, error } = await supabase
           .from('matches')
           .select(`
             *,
-            host:profiles!matches_host_id_fkey(id, username, avatar_url)
+            host:profiles!left(id, username, avatar_url)
           `)
           .eq('status', 'pending')
           .is('opponent_id', null)
           .order('created_at', { ascending: false });
           
-        if (error) throw error;
-        
-        setMatches(data || []);
+        if (error) {
+          console.error("Error fetching matches:", error);
+          // Try a simpler query without the join if the above fails
+          const { data: simpleData, error: simpleError } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('status', 'pending')
+            .is('opponent_id', null)
+            .order('created_at', { ascending: false });
+            
+          if (simpleError) throw simpleError;
+          setMatches(simpleData || []);
+        } else {
+          setMatches(data || []);
+        }
       } catch (error) {
         console.error("Error fetching matches:", error);
         toast({
@@ -144,7 +157,7 @@ const Matchmaking = () => {
       // Generate a random lobby code
       const lobbyCode = generateLobbyCode();
       
-      // Insert new match into the database - use activeMode (ID) instead of activeGameMode.name
+      // Insert new match into the database using the correct game mode ID
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
@@ -152,7 +165,7 @@ const Matchmaking = () => {
           host_id: currentUser.id,
           title: `${activeGameMode!.name} on ${selectedMap}`,
           description: `${selectedTeamSize} ${activeGameMode!.name} match on ${selectedMap}`,
-          game_mode: activeMode, // Use the ID instead of the name
+          game_mode: activeMode,
           map_name: selectedMap,
           bet_amount: selectedBetAmount,
           entry_fee: selectedBetAmount,
@@ -167,7 +180,10 @@ const Matchmaking = () => {
         .select()
         .single();
         
-      if (matchError) throw matchError;
+      if (matchError) {
+        console.error("Match creation error:", matchError);
+        throw matchError;
+      }
       
       toast({
         title: "Match Created!",
@@ -221,12 +237,12 @@ const Matchmaking = () => {
     setIsSearchingMatch(true);
     
     try {
-      // Find a matching game - use activeMode (ID) instead of activeGameMode.name
+      // Find a matching game using the correct game mode ID
       const { data, error } = await supabase
         .from('matches')
         .select('*')
         .eq('status', 'pending')
-        .eq('game_mode', activeMode) // Use the ID instead of the name
+        .eq('game_mode', activeMode)
         .eq('map_name', selectedMap)
         .eq('bet_amount', selectedBetAmount)
         .is('opponent_id', null)
