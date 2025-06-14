@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -92,6 +91,10 @@ const JoinMatch = () => {
 
     setIsJoining(true);
     try {
+      console.log("Starting join match process for match:", match.id);
+      console.log("Current user:", currentUser.id);
+      console.log("Match details:", match);
+
       // Check if user has sufficient balance
       if (userBalance < match.bet_amount) {
         toast({
@@ -103,7 +106,7 @@ const JoinMatch = () => {
         return;
       }
 
-      // Check if match is still open
+      // Check if match is still open and available
       if (match.status !== 'pending' || match.opponent_id) {
         toast({
           title: "Match Unavailable",
@@ -113,17 +116,40 @@ const JoinMatch = () => {
         return;
       }
 
-      // Update match with opponent
-      const { error: matchError } = await supabase
+      // Check if user is not the host
+      if (match.host_id === currentUser.id) {
+        toast({
+          title: "Cannot Join Own Match",
+          description: "You cannot join a match you created",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("All checks passed, updating match with opponent...");
+
+      // Update match with opponent - using explicit column updates
+      const { data: updatedMatch, error: matchError } = await supabase
         .from("matches")
         .update({
           opponent_id: currentUser.id,
           status: 'active',
-          current_players: 2
+          current_players: 2,
+          start_time: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
-        .eq("id", match.id);
+        .eq("id", match.id)
+        .eq("status", "pending") // Ensure it's still pending
+        .is("opponent_id", null) // Ensure no opponent has joined yet
+        .select()
+        .single();
 
-      if (matchError) throw matchError;
+      if (matchError) {
+        console.error("Match update error:", matchError);
+        throw new Error(`Failed to join match: ${matchError.message}`);
+      }
+
+      console.log("Match updated successfully:", updatedMatch);
 
       // Deduct bet amount from user's balance
       const { success: deductSuccess, error: deductError } = await deductFromBalance(
@@ -132,8 +158,11 @@ const JoinMatch = () => {
       );
 
       if (!deductSuccess) {
+        console.error("Balance deduction failed:", deductError);
         throw new Error(deductError || "Failed to deduct bet amount");
       }
+
+      console.log("Balance deducted successfully");
 
       // Create transaction record
       const { error: transactionError } = await supabase
@@ -149,6 +178,7 @@ const JoinMatch = () => {
 
       if (transactionError) {
         console.error("Transaction error:", transactionError);
+        // Don't throw here, just log - the match join was successful
       }
 
       toast({
@@ -156,14 +186,14 @@ const JoinMatch = () => {
         description: "You have joined the match. Good luck!",
       });
 
-      // Navigate to featured match details since MatchDetails was deleted
+      // Navigate to featured match details
       navigate(`/featured-match/${match.id}`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error joining match:", error);
       toast({
         title: "Failed to Join",
-        description: "There was an error joining the match",
+        description: error.message || "There was an error joining the match",
         variant: "destructive",
       });
     } finally {

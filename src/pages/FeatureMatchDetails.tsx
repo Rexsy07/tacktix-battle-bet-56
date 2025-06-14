@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -130,7 +129,7 @@ const FeatureMatchDetails = () => {
     console.log("Setting up real-time subscription for match:", matchId);
     
     const matchSubscription = supabase
-      .channel('match-updates')
+      .channel(`match-${matchId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
@@ -139,35 +138,40 @@ const FeatureMatchDetails = () => {
       }, async (payload) => {
         console.log("Real-time match update received:", payload);
         
-        // Update match data
-        setMatch(payload.new);
+        // Update match data immediately
+        const updatedMatch = payload.new;
+        setMatch(updatedMatch);
         
         // If opponent joined, fetch their profile
-        if (payload.new.opponent_id && !opponentProfile) {
-          console.log("Opponent joined, fetching profile:", payload.new.opponent_id);
+        if (updatedMatch.opponent_id && (!opponentProfile || opponentProfile.id !== updatedMatch.opponent_id)) {
+          console.log("Opponent joined, fetching profile:", updatedMatch.opponent_id);
           
-          const { data: opponentData, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", payload.new.opponent_id)
-            .single();
-          
-          if (!error && opponentData) {
-            console.log("Opponent profile loaded:", opponentData);
-            setOpponentProfile(opponentData);
+          try {
+            const { data: opponentData, error } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", updatedMatch.opponent_id)
+              .single();
             
-            toast({
-              title: "Opponent Joined!",
-              description: `${opponentData.username} has joined the match`,
-            });
+            if (!error && opponentData) {
+              console.log("Opponent profile loaded:", opponentData);
+              setOpponentProfile(opponentData);
+              
+              toast({
+                title: "Opponent Joined!",
+                description: `${opponentData.username} has joined the match`,
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching opponent profile:", error);
           }
         }
         
         // Handle status changes
-        if (payload.new.status !== match?.status) {
-          console.log("Match status changed:", payload.new.status);
+        if (updatedMatch.status !== match?.status) {
+          console.log("Match status changed:", updatedMatch.status);
           
-          if (payload.new.status === 'active') {
+          if (updatedMatch.status === 'active') {
             toast({
               title: "Match Started!",
               description: "The match is now active",
@@ -248,8 +252,8 @@ const FeatureMatchDetails = () => {
       
       console.log("All checks passed, attempting to update match...");
       
-      // Update the match with the opponent
-      const { error: matchError } = await supabase
+      // Update the match with the opponent - using explicit conditions to prevent race conditions
+      const { data: updatedMatch, error: matchError } = await supabase
         .from("matches")
         .update({ 
           opponent_id: userId,
@@ -258,14 +262,18 @@ const FeatureMatchDetails = () => {
           start_time: new Date().toISOString(),
           updated_at: new Date().toISOString()
         } as any)
-        .eq("id", matchId);
+        .eq("id", matchId)
+        .eq("status", "pending") // Ensure it's still pending
+        .is("opponent_id", null) // Ensure no opponent has joined yet
+        .select()
+        .single();
       
       if (matchError) {
         console.error("Match update error:", matchError);
         throw new Error(`Failed to join match: ${matchError.message}`);
       }
       
-      console.log("Match updated successfully, deducting balance...");
+      console.log("Match updated successfully:", updatedMatch);
       
       // Deduct bet amount from user's balance using wallet utils
       const { success: deductSuccess, error: deductError } = await deductFromBalance(
