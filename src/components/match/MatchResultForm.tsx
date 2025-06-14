@@ -87,13 +87,13 @@ const MatchResultForm = ({
       
       if (!success) throw new Error(error);
       
-      // Update match status using a raw update to avoid type issues
+      // Update match status
       const { error: matchError } = await supabase
         .from("matches")
         .update({
           status: resultType === "dispute" ? "disputed" : "completed",
           ...(winnerId && { winner_id: winnerId })
-        } as any)
+        })
         .eq("id", matchId);
         
       if (matchError) throw matchError;

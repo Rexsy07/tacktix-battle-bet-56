@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,6 +12,7 @@ import BrowseMatchesTab from "@/components/matchmaking/BrowseMatchesTab";
 import FindMatchTab from "@/components/matchmaking/FindMatchTab";
 import CreateMatchTab from "@/components/matchmaking/CreateMatchTab";
 import { formatTimeRemaining, generateLobbyCode } from "@/utils/matchmaking-helpers";
+import { getUserBalance } from "@/utils/wallet-utils";
 
 const gameModes = [
   { id: "snd", name: "Search & Destroy", icon: <Shield size={20} />, maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"] },
@@ -60,15 +62,8 @@ const Matchmaking = () => {
           setCurrentUser(session.user);
           
           // Fetch user's wallet balance
-          const { data: walletData, error: walletError } = await supabase
-            .from('wallets')
-            .select('balance')
-            .eq('user_id', session.user.id)
-            .single();
-            
-          if (!walletError) {
-            setWalletBalance(walletData.balance);
-          }
+          const balance = await getUserBalance(session.user.id);
+          setWalletBalance(balance);
         }
         
         // Fetch matches that are still pending (no opponent yet)
@@ -155,12 +150,19 @@ const Matchmaking = () => {
         .from('matches')
         .insert({
           host_id: currentUser.id,
+          title: `${activeGameMode!.name} on ${selectedMap}`,
+          description: `${selectedTeamSize} ${activeGameMode!.name} match on ${selectedMap}`,
           game_mode: activeGameMode!.name,
           map_name: selectedMap,
           bet_amount: selectedBetAmount,
+          entry_fee: selectedBetAmount,
+          prize_pool: selectedBetAmount * 2,
           lobby_code: lobbyCode,
+          team_size: selectedTeamSize,
           status: 'pending',
-          is_vip_match: false
+          is_vip_match: false,
+          max_players: 2,
+          current_players: 1
         })
         .select()
         .single();

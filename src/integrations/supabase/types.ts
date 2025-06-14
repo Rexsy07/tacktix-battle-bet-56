@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       disputes: {
         Row: {
+          admin_notes: string | null
           created_at: string | null
           description: string | null
           evidence_url: string | null
@@ -24,6 +25,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          admin_notes?: string | null
           created_at?: string | null
           description?: string | null
           evidence_url?: string | null
@@ -37,6 +39,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          admin_notes?: string | null
           created_at?: string | null
           description?: string | null
           evidence_url?: string | null
@@ -157,6 +160,47 @@ export type Database = {
           },
         ]
       }
+      match_result_submissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          match_id: string
+          notes: string | null
+          proof_urls: string[] | null
+          result_type: string
+          submitted_by: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          match_id: string
+          notes?: string | null
+          proof_urls?: string[] | null
+          result_type: string
+          submitted_by: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          match_id?: string
+          notes?: string | null
+          proof_urls?: string[] | null
+          result_type?: string
+          submitted_by?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_result_submissions_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_results: {
         Row: {
           deaths: number | null
@@ -210,6 +254,7 @@ export type Database = {
       }
       matches: {
         Row: {
+          bet_amount: number | null
           created_at: string | null
           created_by: string
           current_players: number | null
@@ -217,18 +262,27 @@ export type Database = {
           end_time: string | null
           entry_fee: number
           game_mode: string
+          host_id: string | null
           id: string
           is_featured: boolean | null
+          is_vip_match: boolean | null
+          lobby_code: string | null
+          map_name: string | null
+          match_started: boolean | null
+          match_started_at: string | null
           max_players: number
+          opponent_id: string | null
           prize_pool: number
           scheduled_time: string | null
           start_time: string | null
           status: string | null
+          team_size: string | null
           title: string
           updated_at: string | null
           winner_id: string | null
         }
         Insert: {
+          bet_amount?: number | null
           created_at?: string | null
           created_by: string
           current_players?: number | null
@@ -236,18 +290,27 @@ export type Database = {
           end_time?: string | null
           entry_fee?: number
           game_mode: string
+          host_id?: string | null
           id?: string
           is_featured?: boolean | null
+          is_vip_match?: boolean | null
+          lobby_code?: string | null
+          map_name?: string | null
+          match_started?: boolean | null
+          match_started_at?: string | null
           max_players?: number
+          opponent_id?: string | null
           prize_pool?: number
           scheduled_time?: string | null
           start_time?: string | null
           status?: string | null
+          team_size?: string | null
           title: string
           updated_at?: string | null
           winner_id?: string | null
         }
         Update: {
+          bet_amount?: number | null
           created_at?: string | null
           created_by?: string
           current_players?: number | null
@@ -255,13 +318,21 @@ export type Database = {
           end_time?: string | null
           entry_fee?: number
           game_mode?: string
+          host_id?: string | null
           id?: string
           is_featured?: boolean | null
+          is_vip_match?: boolean | null
+          lobby_code?: string | null
+          map_name?: string | null
+          match_started?: boolean | null
+          match_started_at?: string | null
           max_players?: number
+          opponent_id?: string | null
           prize_pool?: number
           scheduled_time?: string | null
           start_time?: string | null
           status?: string | null
+          team_size?: string | null
           title?: string
           updated_at?: string | null
           winner_id?: string | null
@@ -436,6 +507,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallets: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

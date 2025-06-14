@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Calendar, DollarSign, Trophy, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { getUserBalance, deductFromBalance } from "@/utils/wallet-utils";
 
 interface Match {
   id: string;
@@ -22,7 +23,10 @@ interface Match {
   status: string;
   scheduled_time: string;
   created_by: string;
+  host_id: string;
   created_at: string;
+  bet_amount: number;
+  map_name: string;
 }
 
 interface Profile {
@@ -41,14 +45,23 @@ const JoinMatch = () => {
   const [userBalance, setUserBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     if (matchId) {
       fetchMatchDetails();
-      fetchParticipants();
-      fetchUserBalance();
+      checkAuth();
     }
   }, [matchId]);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      setCurrentUser(session.user);
+      const balance = await getUserBalance(session.user.id);
+      setUserBalance(balance);
+    }
+  };
 
   const fetchMatchDetails = async () => {
     try {
@@ -68,78 +81,18 @@ const JoinMatch = () => {
         description: "Failed to load match details",
         variant: "destructive",
       });
-    }
-  };
-
-  const fetchParticipants = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("match_participants")
-        .select(`
-          user_id,
-          profiles!inner(id, username, avatar_url, total_earnings)
-        `)
-        .eq("match_id", matchId);
-
-      if (error) throw error;
-
-      const participantProfiles = data?.map((p: any) => p.profiles) || [];
-      setParticipants(participantProfiles);
-    } catch (error) {
-      console.error("Error fetching participants:", error);
-    }
-  };
-
-  const fetchUserBalance = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Calculate balance from transactions
-      const { data: transactions, error } = await supabase
-        .from("transactions")
-        .select("amount, type")
-        .eq("user_id", session.user.id)
-        .eq("status", "completed");
-
-      if (error) throw error;
-
-      let balance = 0;
-      transactions?.forEach(tx => {
-        if (tx.type === 'deposit' || tx.type === 'win' || tx.type === 'refund') {
-          balance += tx.amount;
-        } else {
-          balance -= tx.amount;
-        }
-      });
-
-      setUserBalance(balance);
-    } catch (error) {
-      console.error("Error fetching balance:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleJoinMatch = async () => {
-    if (!match) return;
+    if (!match || !currentUser) return;
 
     setIsJoining(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to join matches",
-          variant: "destructive",
-        });
-        navigate("/sign-in");
-        return;
-      }
-
       // Check if user has sufficient balance
-      if (userBalance < match.entry_fee) {
+      if (userBalance < match.bet_amount) {
         toast({
           title: "Insufficient Balance",
           description: "Please deposit funds to join this match",
@@ -149,8 +102,8 @@ const JoinMatch = () => {
         return;
       }
 
-      // Check if match is still open and has space
-      if (match.status !== 'open' || match.current_players >= match.max_players) {
+      // Check if match is still open
+      if (match.status !== 'pending' || match.opponent_id) {
         toast({
           title: "Match Unavailable",
           description: "This match is no longer available",
@@ -159,60 +112,51 @@ const JoinMatch = () => {
         return;
       }
 
-      // Check if user is already a participant
-      const isAlreadyParticipant = participants.some(p => p.id === session.user.id);
-      if (isAlreadyParticipant) {
-        toast({
-          title: "Already Joined",
-          description: "You have already joined this match",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Join the match
-      const { error: participantError } = await supabase
-        .from("match_participants")
-        .insert({
-          match_id: match.id,
-          user_id: session.user.id,
-          status: 'joined'
-        });
-
-      if (participantError) throw participantError;
-
-      // Create entry fee transaction
-      const { error: transactionError } = await supabase
-        .from("transactions")
-        .insert({
-          user_id: session.user.id,
-          type: "loss",
-          amount: match.entry_fee,
-          status: "completed",
-          description: `Entry fee for match: ${match.title}`,
-          match_id: match.id
-        } as any);
-
-      if (transactionError) throw transactionError;
-
-      // Update match current players count
-      const { error: updateError } = await supabase
+      // Update match with opponent
+      const { error: matchError } = await supabase
         .from("matches")
-        .update({ 
-          current_players: match.current_players + 1,
-          status: match.current_players + 1 >= match.max_players ? 'full' : 'open'
+        .update({
+          opponent_id: currentUser.id,
+          status: 'active',
+          current_players: 2
         })
         .eq("id", match.id);
 
-      if (updateError) throw updateError;
+      if (matchError) throw matchError;
+
+      // Deduct bet amount from user's balance
+      const { success: deductSuccess, error: deductError } = await deductFromBalance(
+        currentUser.id,
+        match.bet_amount
+      );
+
+      if (!deductSuccess) {
+        throw new Error(deductError || "Failed to deduct bet amount");
+      }
+
+      // Create transaction record
+      const { error: transactionError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: currentUser.id,
+          type: "bet",
+          amount: match.bet_amount,
+          status: "completed",
+          description: `Bet placed on match: ${match.title}`,
+          match_id: match.id
+        });
+
+      if (transactionError) {
+        console.error("Transaction error:", transactionError);
+      }
 
       toast({
         title: "Successfully Joined!",
         description: "You have joined the match. Good luck!",
       });
 
-      // Refresh data
-      await Promise.all([fetchMatchDetails(), fetchParticipants(), fetchUserBalance()]);
+      // Navigate to match details
+      navigate(`/match/${match.id}`);
 
     } catch (error) {
       console.error("Error joining match:", error);
@@ -250,8 +194,8 @@ const JoinMatch = () => {
     );
   }
 
-  const canJoin = match.status === 'open' && match.current_players < match.max_players && userBalance >= match.entry_fee;
-  const isUserParticipant = participants.some(p => p.id);
+  const canJoin = match.status === 'pending' && !match.opponent_id && userBalance >= match.bet_amount && currentUser;
+  const isUserHost = currentUser && match.host_id === currentUser.id;
 
   return (
     <Layout>
@@ -278,8 +222,13 @@ const JoinMatch = () => {
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Entry Fee</span>
-                  <span className="font-medium">₦{match.entry_fee.toLocaleString()}</span>
+                  <span className="text-gray-400">Map</span>
+                  <span className="font-medium">{match.map_name}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Bet Amount</span>
+                  <span className="font-medium">₦{match.bet_amount.toLocaleString()}</span>
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -294,7 +243,7 @@ const JoinMatch = () => {
                 
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Status</span>
-                  <Badge variant={match.status === 'open' ? 'default' : 'secondary'}>
+                  <Badge variant={match.status === 'pending' ? 'default' : 'secondary'}>
                     {match.status}
                   </Badge>
                 </div>
@@ -306,40 +255,6 @@ const JoinMatch = () => {
                       {new Date(match.scheduled_time).toLocaleString()}
                     </span>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Participants */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Participants ({participants.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {participants.length > 0 ? (
-                  <div className="space-y-4">
-                    {participants.map((participant) => (
-                      <div key={participant.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                        <Avatar>
-                          <AvatarImage src={participant.avatar_url} />
-                          <AvatarFallback>{participant.username?.[0]?.toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium">{participant.username}</p>
-                          <p className="text-sm text-gray-400">
-                            Earnings: ₦{participant.total_earnings?.toLocaleString() || '0'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-400 text-center py-4">
-                    No participants yet. Be the first to join!
-                  </p>
                 )}
               </CardContent>
             </Card>
@@ -361,14 +276,23 @@ const JoinMatch = () => {
 
             <Card>
               <CardContent className="p-6">
-                {!canJoin && (
+                {!currentUser && (
+                  <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-yellow-500">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">Please sign in to join</span>
+                    </div>
+                  </div>
+                )}
+
+                {!canJoin && currentUser && (
                   <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                     <div className="flex items-center gap-2 text-yellow-500">
                       <AlertCircle className="h-4 w-4" />
                       <span className="text-sm">
-                        {userBalance < match.entry_fee 
+                        {userBalance < match.bet_amount 
                           ? "Insufficient balance"
-                          : match.current_players >= match.max_players
+                          : match.opponent_id
                           ? "Match is full"
                           : "Match not available"
                         }
@@ -377,9 +301,20 @@ const JoinMatch = () => {
                   </div>
                 )}
 
-                {isUserParticipant ? (
+                {isUserHost ? (
                   <Button className="w-full" disabled>
-                    Already Joined
+                    You are the host
+                  </Button>
+                ) : match.opponent_id ? (
+                  <Button className="w-full" disabled>
+                    Match is full
+                  </Button>
+                ) : !currentUser ? (
+                  <Button
+                    className="w-full"
+                    onClick={() => navigate("/sign-in")}
+                  >
+                    Sign In to Join
                   </Button>
                 ) : (
                   <Button
@@ -387,11 +322,11 @@ const JoinMatch = () => {
                     onClick={handleJoinMatch}
                     disabled={!canJoin || isJoining}
                   >
-                    {isJoining ? "Joining..." : `Join Match - ₦${match.entry_fee.toLocaleString()}`}
+                    {isJoining ? "Joining..." : `Join Match - ₦${match.bet_amount.toLocaleString()}`}
                   </Button>
                 )}
 
-                {userBalance < match.entry_fee && (
+                {currentUser && userBalance < match.bet_amount && (
                   <Button
                     variant="outline"
                     className="w-full mt-3"
