@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -71,7 +70,7 @@ const ModeratorPanel = () => {
       setLoading(true);
       
       // Fetch analytics data
-      const statsResult = await getModeratorStats();
+      const statsResult = await getModeratorStats(moderatorId);
       if (statsResult.success) {
         setAnalyticsData(statsResult.data);
       }
@@ -126,7 +125,7 @@ const ModeratorPanel = () => {
       }
       
       // Refresh analytics
-      const statsResult = await getModeratorStats();
+      const statsResult = await getModeratorStats(moderatorId);
       if (statsResult.success) {
         setAnalyticsData(statsResult.data);
       }
@@ -165,7 +164,7 @@ const ModeratorPanel = () => {
       }
       
       // Refresh analytics
-      const statsResult = await getModeratorStats();
+      const statsResult = await getModeratorStats(moderatorId);
       if (statsResult.success) {
         setAnalyticsData(statsResult.data);
       }
@@ -425,7 +424,7 @@ const ModeratorPanel = () => {
                           {dispute.type === "technical" && (
                             <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
                               Technical Issue
-                            </Badge>
+                            Badge>
                           )}
                         </TableCell>
                         <TableCell>
