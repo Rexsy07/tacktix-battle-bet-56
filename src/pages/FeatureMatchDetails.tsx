@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Trophy, User, Clock, Map, X, CheckCircle, ShieldAlert } from "lucide-react";
+import { getUserBalance, deductFromBalance } from "@/utils/wallet-utils";
 
 // Function to format time remaining
 const formatTimeRemaining = (deadline: string) => {
@@ -38,6 +38,8 @@ const FeatureMatchDetails = () => {
   useEffect(() => {
     const fetchMatchDetails = async () => {
       try {
+        console.log("Fetching match details for ID:", matchId);
+        
         // First get the match details
         const { data: matchData, error: matchError } = await supabase
           .from("matches")
@@ -45,23 +47,36 @@ const FeatureMatchDetails = () => {
           .eq("id", matchId)
           .single();
         
-        if (matchError) throw matchError;
+        if (matchError) {
+          console.error("Match fetch error:", matchError);
+          throw matchError;
+        }
+        
+        console.log("Match data retrieved:", matchData);
         setMatch(matchData);
         
         // Get host profile - use created_by as fallback for host_id
         const hostId = (matchData as any).host_id || matchData.created_by;
+        console.log("Fetching host profile for ID:", hostId);
+        
         const { data: hostData, error: hostError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", hostId)
           .single();
         
-        if (hostError) throw hostError;
+        if (hostError) {
+          console.error("Host profile fetch error:", hostError);
+          throw hostError;
+        }
+        
+        console.log("Host profile retrieved:", hostData);
         setHostProfile(hostData);
         
         // Get opponent profile if exists
         const opponentId = (matchData as any).opponent_id;
         if (opponentId) {
+          console.log("Fetching opponent profile for ID:", opponentId);
           const { data: opponentData, error: opponentError } = await supabase
             .from("profiles")
             .select("*")
@@ -69,31 +84,25 @@ const FeatureMatchDetails = () => {
             .single();
           
           if (!opponentError) {
+            console.log("Opponent profile retrieved:", opponentData);
             setOpponentProfile(opponentData);
+          } else {
+            console.error("Opponent profile fetch error:", opponentError);
           }
         }
         
-        // Get current user's session and calculate balance from transactions
+        // Get current user's session and balance using wallet utils
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          console.log("Current user found:", session.user.id);
           setCurrentUser(session.user);
-          const { data: transactions } = await supabase
-            .from("transactions")
-            .select("amount, type")
-            .eq("user_id", session.user.id)
-            .eq("status", "completed");
           
-          // Calculate balance from transactions
-          let balance = 0;
-          transactions?.forEach(tx => {
-            if (tx.type === 'deposit' || tx.type === 'win' || tx.type === 'refund') {
-              balance += tx.amount;
-            } else {
-              balance -= tx.amount;
-            }
-          });
-          
+          // Use wallet utils to get balance
+          const balance = await getUserBalance(session.user.id);
+          console.log("User balance retrieved:", balance);
           setCurrentUserBalance(balance);
+        } else {
+          console.log("No current user session found");
         }
         
         setLoading(false);
@@ -116,9 +125,11 @@ const FeatureMatchDetails = () => {
   const handleJoinMatch = async () => {
     try {
       setIsJoining(true);
+      console.log("Starting join match process...");
       
       // Check user is logged in
       if (!currentUser) {
+        console.error("No current user found");
         toast({
           title: "Authentication Required",
           description: "Please sign in to join this match",
@@ -131,8 +142,15 @@ const FeatureMatchDetails = () => {
       const userId = currentUser.id;
       const betAmount = (match as any).bet_amount || match.entry_fee;
       
+      console.log("User ID:", userId);
+      console.log("Bet amount:", betAmount);
+      console.log("User balance:", currentUserBalance);
+      console.log("Match status:", match.status);
+      console.log("Current opponent_id:", (match as any).opponent_id);
+      
       // Check user has enough balance
       if (currentUserBalance < betAmount) {
+        console.error("Insufficient balance");
         toast({
           title: "Insufficient Funds",
           description: "Please add funds to your wallet to join this match",
@@ -145,6 +163,7 @@ const FeatureMatchDetails = () => {
       // Check user is not the host
       const hostId = (match as any).host_id || match.created_by;
       if (userId === hostId) {
+        console.error("User is the host");
         toast({
           title: "Cannot Join Own Match",
           description: "You cannot join a match you created",
@@ -154,8 +173,9 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      // Check match is still available (check for both 'pending' and 'open' status)
+      // Check match is still available
       if (!['pending', 'open'].includes(match.status) || (match as any).opponent_id) {
+        console.error("Match not available. Status:", match.status, "Opponent ID:", (match as any).opponent_id);
         toast({
           title: "Match Unavailable",
           description: "This match is no longer available to join",
@@ -165,7 +185,7 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      console.log("Attempting to join match:", matchId, "with user:", userId);
+      console.log("All checks passed, attempting to update match...");
       
       // Update the match with the opponent
       const { error: matchError } = await supabase
@@ -181,10 +201,23 @@ const FeatureMatchDetails = () => {
       
       if (matchError) {
         console.error("Match update error:", matchError);
-        throw matchError;
+        throw new Error(`Failed to join match: ${matchError.message}`);
       }
       
-      console.log("Match updated successfully");
+      console.log("Match updated successfully, deducting balance...");
+      
+      // Deduct bet amount from user's balance using wallet utils
+      const { success: deductSuccess, error: deductError } = await deductFromBalance(
+        userId,
+        betAmount
+      );
+      
+      if (!deductSuccess) {
+        console.error("Balance deduction failed:", deductError);
+        throw new Error(deductError || "Failed to deduct bet amount");
+      }
+      
+      console.log("Balance deducted successfully, creating transaction...");
       
       // Create transaction record for bet
       const { error: transactionError } = await supabase
@@ -201,9 +234,9 @@ const FeatureMatchDetails = () => {
       if (transactionError) {
         console.error("Transaction error:", transactionError);
         // Don't throw here, just log - the match join was successful
+      } else {
+        console.log("Transaction created successfully");
       }
-      
-      console.log("Transaction created successfully");
       
       // Reload the match data
       const { data: updatedMatch, error: refreshError } = await supabase
@@ -216,6 +249,7 @@ const FeatureMatchDetails = () => {
         console.error("Refresh error:", refreshError);
         // Don't throw here either - just reload the page
       } else {
+        console.log("Match data refreshed");
         setMatch(updatedMatch);
       }
       
@@ -226,16 +260,21 @@ const FeatureMatchDetails = () => {
         .eq("id", userId)
         .single();
       
-      setOpponentProfile(opponentData);
+      if (opponentData) {
+        console.log("Opponent profile loaded");
+        setOpponentProfile(opponentData);
+      }
       
       // Update balance
-      setCurrentUserBalance(currentUserBalance - betAmount);
+      const newBalance = await getUserBalance(userId);
+      setCurrentUserBalance(newBalance);
       
+      console.log("Join match process completed successfully");
       toast({
         title: "Match Joined!",
         description: "You have successfully joined this match. Good luck!",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error joining match:", error);
       toast({
         title: "Error",
