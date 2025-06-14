@@ -126,6 +126,53 @@ const Matchmaking = () => {
     return () => clearInterval(interval);
   }, [toast]);
 
+  // Add real-time subscription for match updates
+  useEffect(() => {
+    console.log("Setting up real-time subscription for matches");
+    
+    const matchesSubscription = supabase
+      .channel('matches-updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'matches' 
+      }, async (payload) => {
+        console.log("Real-time matches update received:", payload);
+        
+        if (payload.eventType === 'UPDATE' && payload.new.opponent_id) {
+          // Match was joined, remove it from pending matches or update it
+          setMatches(prevMatches => 
+            prevMatches.filter(match => match.id !== payload.new.id)
+          );
+          
+          toast({
+            title: "Match Updated",
+            description: "A match has been joined by another player",
+          });
+        } else if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
+          // New match created, add it to the list
+          const { data: hostProfile } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .eq('id', payload.new.host_id)
+            .single();
+          
+          const newMatch = {
+            ...payload.new,
+            host: hostProfile
+          };
+          
+          setMatches(prevMatches => [newMatch, ...prevMatches]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      console.log("Cleaning up matches real-time subscription");
+      supabase.removeChannel(matchesSubscription);
+    };
+  }, [toast]);
+
   const handleCreateMatch = async () => {
     if (!currentUser) {
       toast({
