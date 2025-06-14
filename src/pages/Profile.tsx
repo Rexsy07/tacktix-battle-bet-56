@@ -190,7 +190,7 @@ const Profile = () => {
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold">{profileData.username}</h1>
               {profileData.is_vip && (
-                <Badge variant="gradient" className="flex items-center gap-1">
+                <Badge variant="secondary" className="flex items-center gap-1">
                   <Star className="h-3 w-3" />
                   VIP
                 </Badge>
@@ -214,7 +214,7 @@ const Profile = () => {
           </div>
           
           <Button
-            variant={editing ? "outline" : "gradient"}
+            variant={editing ? "outline" : "default"}
             onClick={() => editing ? setEditing(false) : setEditing(true)}
             className="flex items-center gap-2"
           >
