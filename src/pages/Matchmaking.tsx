@@ -66,31 +66,44 @@ const Matchmaking = () => {
           setWalletBalance(balance);
         }
         
-        // Fetch matches with host profile data - using a left join instead of foreign key reference
-        const { data, error } = await supabase
+        // Fetch matches with a simpler query first
+        const { data: matchesData, error: matchesError } = await supabase
           .from('matches')
-          .select(`
-            *,
-            host:profiles!left(id, username, avatar_url)
-          `)
+          .select('*')
           .eq('status', 'pending')
           .is('opponent_id', null)
           .order('created_at', { ascending: false });
           
-        if (error) {
-          console.error("Error fetching matches:", error);
-          // Try a simpler query without the join if the above fails
-          const { data: simpleData, error: simpleError } = await supabase
-            .from('matches')
-            .select('*')
-            .eq('status', 'pending')
-            .is('opponent_id', null)
-            .order('created_at', { ascending: false });
-            
-          if (simpleError) throw simpleError;
-          setMatches(simpleData || []);
+        if (matchesError) {
+          console.error("Error fetching matches:", matchesError);
+          throw matchesError;
+        }
+        
+        // If we have matches, fetch host profiles separately
+        if (matchesData && matchesData.length > 0) {
+          const hostIds = [...new Set(matchesData.map(match => match.host_id).filter(Boolean))];
+          
+          if (hostIds.length > 0) {
+            const { data: profilesData, error: profilesError } = await supabase
+              .from('profiles')
+              .select('id, username, avatar_url')
+              .in('id', hostIds);
+              
+            if (!profilesError && profilesData) {
+              // Combine matches with host profiles
+              const matchesWithHosts = matchesData.map(match => ({
+                ...match,
+                host: profilesData.find(profile => profile.id === match.host_id)
+              }));
+              setMatches(matchesWithHosts);
+            } else {
+              setMatches(matchesData);
+            }
+          } else {
+            setMatches(matchesData);
+          }
         } else {
-          setMatches(data || []);
+          setMatches([]);
         }
       } catch (error) {
         console.error("Error fetching matches:", error);
@@ -99,6 +112,7 @@ const Matchmaking = () => {
           description: "Failed to load matches. Please try again.",
           variant: "destructive",
         });
+        setMatches([]);
       } finally {
         setLoading(false);
       }
@@ -157,7 +171,25 @@ const Matchmaking = () => {
       // Generate a random lobby code
       const lobbyCode = generateLobbyCode();
       
-      // Insert new match into the database using the correct game mode ID
+      console.log("Creating match with data:", {
+        created_by: currentUser.id,
+        host_id: currentUser.id,
+        title: `${activeGameMode!.name} on ${selectedMap}`,
+        description: `${selectedTeamSize} ${activeGameMode!.name} match on ${selectedMap}`,
+        game_mode: activeMode,
+        map_name: selectedMap,
+        bet_amount: selectedBetAmount,
+        entry_fee: selectedBetAmount,
+        prize_pool: selectedBetAmount * 2,
+        lobby_code: lobbyCode,
+        team_size: selectedTeamSize,
+        status: 'pending',
+        is_vip_match: false,
+        max_players: 2,
+        current_players: 1
+      });
+      
+      // Insert new match into the database
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
@@ -184,6 +216,8 @@ const Matchmaking = () => {
         console.error("Match creation error:", matchError);
         throw matchError;
       }
+      
+      console.log("Match created successfully:", matchData);
       
       toast({
         title: "Match Created!",
@@ -237,7 +271,7 @@ const Matchmaking = () => {
     setIsSearchingMatch(true);
     
     try {
-      // Find a matching game using the correct game mode ID
+      // Find a matching game
       const { data, error } = await supabase
         .from('matches')
         .select('*')
