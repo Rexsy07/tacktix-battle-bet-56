@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -71,7 +70,7 @@ const Matchmaking = () => {
           .from('matches')
           .select(`
             *,
-            host:host_id(id, username, avatar_url)
+            host:profiles!matches_host_id_fkey(id, username, avatar_url)
           `)
           .eq('status', 'pending')
           .is('opponent_id', null)
