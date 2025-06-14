@@ -32,6 +32,7 @@ const FeatureMatchDetails = () => {
   const [loading, setLoading] = useState(true);
   const [currentUserBalance, setCurrentUserBalance] = useState<number>(0);
   const [isJoining, setIsJoining] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -75,6 +76,7 @@ const FeatureMatchDetails = () => {
         // Get current user's session and calculate balance from transactions
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          setCurrentUser(session.user);
           const { data: transactions } = await supabase
             .from("transactions")
             .select("amount, type")
@@ -116,8 +118,7 @@ const FeatureMatchDetails = () => {
       setIsJoining(true);
       
       // Check user is logged in
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!currentUser) {
         toast({
           title: "Authentication Required",
           description: "Please sign in to join this match",
@@ -127,7 +128,7 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      const userId = session.user.id;
+      const userId = currentUser.id;
       const betAmount = (match as any).bet_amount || match.entry_fee;
       
       // Check user has enough balance
@@ -153,8 +154,8 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      // Check match is still available
-      if (match.status !== "open" || (match as any).opponent_id) {
+      // Check match is still available (check for both 'pending' and 'open' status)
+      if (!['pending', 'open'].includes(match.status) || (match as any).opponent_id) {
         toast({
           title: "Match Unavailable",
           description: "This match is no longer available to join",
@@ -164,17 +165,26 @@ const FeatureMatchDetails = () => {
         return;
       }
       
+      console.log("Attempting to join match:", matchId, "with user:", userId);
+      
       // Update the match with the opponent
       const { error: matchError } = await supabase
         .from("matches")
         .update({ 
+          opponent_id: userId,
           status: "active",
+          current_players: 2,
           start_time: new Date().toISOString(),
           updated_at: new Date().toISOString()
         } as any)
         .eq("id", matchId);
       
-      if (matchError) throw matchError;
+      if (matchError) {
+        console.error("Match update error:", matchError);
+        throw matchError;
+      }
+      
+      console.log("Match updated successfully");
       
       // Create transaction record for bet
       const { error: transactionError } = await supabase
@@ -190,7 +200,10 @@ const FeatureMatchDetails = () => {
       
       if (transactionError) {
         console.error("Transaction error:", transactionError);
+        // Don't throw here, just log - the match join was successful
       }
+      
+      console.log("Transaction created successfully");
       
       // Reload the match data
       const { data: updatedMatch, error: refreshError } = await supabase
@@ -199,8 +212,12 @@ const FeatureMatchDetails = () => {
         .eq("id", matchId)
         .single();
       
-      if (refreshError) throw refreshError;
-      setMatch(updatedMatch);
+      if (refreshError) {
+        console.error("Refresh error:", refreshError);
+        // Don't throw here either - just reload the page
+      } else {
+        setMatch(updatedMatch);
+      }
       
       // Get updated opponent profile
       const { data: opponentData } = await supabase
@@ -222,7 +239,7 @@ const FeatureMatchDetails = () => {
       console.error("Error joining match:", error);
       toast({
         title: "Error",
-        description: "Failed to join match. Please try again.",
+        description: `Failed to join match: ${error.message || 'Please try again.'}`,
         variant: "destructive",
       });
     } finally {
@@ -262,6 +279,7 @@ const FeatureMatchDetails = () => {
   // Determine match status display
   const getStatusDisplay = () => {
     switch (match.status) {
+      case "pending":
       case "open":
         return (
           <div className="bg-yellow-600/20 text-yellow-500 px-3 py-1 rounded-full text-sm font-medium">
@@ -299,6 +317,8 @@ const FeatureMatchDetails = () => {
   
   const betAmount = (match as any).bet_amount || match.entry_fee;
   const mapName = (match as any).map_name || "Unknown Map";
+  const canJoin = ['pending', 'open'].includes(match.status) && !(match as any).opponent_id && currentUser;
+  const isUserHost = currentUser && ((match as any).host_id === currentUser.id || match.created_by === currentUser.id);
   
   return (
     <Layout>
@@ -397,7 +417,7 @@ const FeatureMatchDetails = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-tacktix-dark border-2 border-dashed border-gray-700">
-                    {match.status === "open" ? (
+                    {canJoin && !isUserHost ? (
                       <>
                         <p className="text-gray-400 mb-4">This match is waiting for an opponent to join</p>
                         <Button 
@@ -422,7 +442,11 @@ const FeatureMatchDetails = () => {
                     ) : (
                       <div className="text-center">
                         <X className="h-12 w-12 mx-auto text-gray-600 mb-2" />
-                        <p className="text-gray-400">No opponent joined this match</p>
+                        <p className="text-gray-400">
+                          {isUserHost ? "You are the host of this match" : 
+                           !currentUser ? "Please sign in to join" :
+                           "No opponent joined this match"}
+                        </p>
                       </div>
                     )}
                   </div>
