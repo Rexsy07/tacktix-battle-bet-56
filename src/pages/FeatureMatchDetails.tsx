@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -121,6 +122,66 @@ const FeatureMatchDetails = () => {
       fetchMatchDetails();
     }
   }, [matchId, toast]);
+
+  // Add real-time subscription for match updates
+  useEffect(() => {
+    if (!matchId) return;
+
+    console.log("Setting up real-time subscription for match:", matchId);
+    
+    const matchSubscription = supabase
+      .channel('match-updates')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'matches',
+        filter: `id=eq.${matchId}` 
+      }, async (payload) => {
+        console.log("Real-time match update received:", payload);
+        
+        // Update match data
+        setMatch(payload.new);
+        
+        // If opponent joined, fetch their profile
+        if (payload.new.opponent_id && !opponentProfile) {
+          console.log("Opponent joined, fetching profile:", payload.new.opponent_id);
+          
+          const { data: opponentData, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", payload.new.opponent_id)
+            .single();
+          
+          if (!error && opponentData) {
+            console.log("Opponent profile loaded:", opponentData);
+            setOpponentProfile(opponentData);
+            
+            toast({
+              title: "Opponent Joined!",
+              description: `${opponentData.username} has joined the match`,
+            });
+          }
+        }
+        
+        // Handle status changes
+        if (payload.new.status !== match?.status) {
+          console.log("Match status changed:", payload.new.status);
+          
+          if (payload.new.status === 'active') {
+            toast({
+              title: "Match Started!",
+              description: "The match is now active",
+            });
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      console.log("Cleaning up real-time subscription");
+      supabase.removeChannel(matchSubscription);
+    };
+  }, [matchId, match?.status, opponentProfile, toast]);
   
   const handleJoinMatch = async () => {
     try {
@@ -236,33 +297,6 @@ const FeatureMatchDetails = () => {
         // Don't throw here, just log - the match join was successful
       } else {
         console.log("Transaction created successfully");
-      }
-      
-      // Reload the match data
-      const { data: updatedMatch, error: refreshError } = await supabase
-        .from("matches")
-        .select("*")
-        .eq("id", matchId)
-        .single();
-      
-      if (refreshError) {
-        console.error("Refresh error:", refreshError);
-        // Don't throw here either - just reload the page
-      } else {
-        console.log("Match data refreshed");
-        setMatch(updatedMatch);
-      }
-      
-      // Get updated opponent profile
-      const { data: opponentData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      
-      if (opponentData) {
-        console.log("Opponent profile loaded");
-        setOpponentProfile(opponentData);
       }
       
       // Update balance
