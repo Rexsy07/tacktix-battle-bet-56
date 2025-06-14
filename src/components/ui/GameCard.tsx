@@ -27,7 +27,7 @@ const GameCard = ({
   const navigate = useNavigate();
   
   const handleViewDetails = () => {
-    navigate(`/match/${id}`);
+    navigate(`/featured-match/${id}`);
   };
   
   const handleJoinOrSpectate = () => {

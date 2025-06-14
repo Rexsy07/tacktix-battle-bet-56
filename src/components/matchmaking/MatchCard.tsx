@@ -79,7 +79,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, formatTimeRemaining }) => 
               {match.opponent_id ? "Match Full" : "Not Available"}
             </Button>
           )}
-          <Link to={`/match/${match.id}`} className="w-full">
+          <Link to={`/featured-match/${match.id}`} className="w-full">
             <Button variant="outline" className="w-full text-xs">
               View Details
             </Button>
