@@ -144,7 +144,7 @@ const Matchmaking = () => {
       // Generate a random lobby code
       const lobbyCode = generateLobbyCode();
       
-      // Insert new match into the database
+      // Insert new match into the database - use activeMode (ID) instead of activeGameMode.name
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
@@ -152,7 +152,7 @@ const Matchmaking = () => {
           host_id: currentUser.id,
           title: `${activeGameMode!.name} on ${selectedMap}`,
           description: `${selectedTeamSize} ${activeGameMode!.name} match on ${selectedMap}`,
-          game_mode: activeGameMode!.name,
+          game_mode: activeMode, // Use the ID instead of the name
           map_name: selectedMap,
           bet_amount: selectedBetAmount,
           entry_fee: selectedBetAmount,
@@ -221,12 +221,12 @@ const Matchmaking = () => {
     setIsSearchingMatch(true);
     
     try {
-      // Find a matching game
+      // Find a matching game - use activeMode (ID) instead of activeGameMode.name
       const { data, error } = await supabase
         .from('matches')
         .select('*')
         .eq('status', 'pending')
-        .eq('game_mode', activeGameMode!.name)
+        .eq('game_mode', activeMode) // Use the ID instead of the name
         .eq('map_name', selectedMap)
         .eq('bet_amount', selectedBetAmount)
         .is('opponent_id', null)
