@@ -44,14 +44,14 @@ const ModeratorPanel = () => {
       
       setModeratorId(session.user.id);
       
-      // Check if user is a moderator
-      const { data: moderatorData, error: moderatorError } = await supabase
-        .from("moderators")
-        .select("*")
+      // Check if user is a moderator by checking the profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("is_moderator")
         .eq("id", session.user.id)
-        .maybeSingle();
+        .single();
         
-      if (moderatorError || !moderatorData) {
+      if (profileError || !profileData?.is_moderator) {
         toast({
           title: "Access Denied",
           description: "You do not have moderator privileges.",

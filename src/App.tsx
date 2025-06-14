@@ -14,7 +14,6 @@ import Wallet from "./pages/Wallet";
 import History from "./pages/History";
 import Matchmaking from "./pages/Matchmaking";
 import Leaderboards from "./pages/Leaderboards";
-import MatchDetails from "./pages/MatchDetails";
 import DuelChallenge from "./pages/DuelChallenge";
 import VipDashboard from "./pages/VipDashboard";
 import ModeratorPanel from "./pages/ModeratorPanel";
@@ -47,8 +46,7 @@ const App = () => (
             <Route path="/history" element={<History />} />
             <Route path="/matchmaking" element={<Matchmaking />} />
             <Route path="/leaderboards" element={<Leaderboards />} />
-            <Route path="/match/:matchId" element={<MatchDetails />} />
-            <Route path="/join-match/:id" element={<JoinMatch />} />
+            <Route path="/join-match/:matchId" element={<JoinMatch />} />
             <Route path="/spectate/:id" element={<Spectate />} />
             <Route path="/duel-challenge" element={<DuelChallenge />} />
             <Route path="/vip-dashboard" element={<VipDashboard />} />

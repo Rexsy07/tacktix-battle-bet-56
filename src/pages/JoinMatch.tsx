@@ -24,6 +24,7 @@ interface Match {
   scheduled_time: string;
   created_by: string;
   host_id: string;
+  opponent_id: string | null;
   created_at: string;
   bet_amount: number;
   map_name: string;
@@ -155,8 +156,8 @@ const JoinMatch = () => {
         description: "You have joined the match. Good luck!",
       });
 
-      // Navigate to match details
-      navigate(`/match/${match.id}`);
+      // Navigate to featured match details since MatchDetails was deleted
+      navigate(`/featured-match/${match.id}`);
 
     } catch (error) {
       console.error("Error joining match:", error);

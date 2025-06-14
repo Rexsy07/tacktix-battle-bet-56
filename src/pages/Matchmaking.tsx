@@ -149,6 +149,7 @@ const Matchmaking = () => {
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
+          created_by: currentUser.id,
           host_id: currentUser.id,
           title: `${activeGameMode!.name} on ${selectedMap}`,
           description: `${selectedTeamSize} ${activeGameMode!.name} match on ${selectedMap}`,
@@ -174,8 +175,8 @@ const Matchmaking = () => {
         description: `Your ${activeGameMode!.name} match on ${selectedMap} has been created.`,
       });
       
-      // Navigate to the match details page
-      navigate(`/match/${matchData.id}`);
+      // Navigate to the featured match details page
+      navigate(`/featured-match/${matchData.id}`);
     } catch (error: any) {
       console.error("Error creating match:", error);
       toast({
