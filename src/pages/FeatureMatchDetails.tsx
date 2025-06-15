@@ -16,7 +16,7 @@ const formatTimeRemaining = (deadline: string) => {
   if (diffMs <= 0) return "Expired";
   
   const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
+  const diffHours = Math.floor(diffMs / 60);
   
   if (diffHours > 0) {
     return `${diffHours}h ${diffMins % 60}m`;
@@ -190,11 +190,11 @@ const FeatureMatchDetails = () => {
   const handleJoinMatch = async () => {
     try {
       setIsJoining(true);
-      console.log("Starting join match process...");
+      console.log("=== STARTING JOIN MATCH PROCESS (FeatureMatchDetails) ===");
       
       // Check user is logged in
       if (!currentUser) {
-        console.error("No current user found");
+        console.error("❌ No current user found");
         toast({
           title: "Authentication Required",
           description: "Please sign in to join this match",
@@ -207,15 +207,17 @@ const FeatureMatchDetails = () => {
       const userId = currentUser.id;
       const betAmount = (match as any).bet_amount || match.entry_fee;
       
-      console.log("User ID:", userId);
-      console.log("Bet amount:", betAmount);
-      console.log("User balance:", currentUserBalance);
-      console.log("Match status:", match.status);
-      console.log("Current opponent_id:", (match as any).opponent_id);
+      console.log("📋 Join attempt details:");
+      console.log("  - User ID:", userId);
+      console.log("  - Bet amount:", betAmount);
+      console.log("  - User balance:", currentUserBalance);
+      console.log("  - Match status:", match.status);
+      console.log("  - Current opponent_id:", (match as any).opponent_id);
+      console.log("  - Match ID:", matchId);
       
       // Check user has enough balance
       if (currentUserBalance < betAmount) {
-        console.error("Insufficient balance");
+        console.error("❌ Insufficient balance");
         toast({
           title: "Insufficient Funds",
           description: "Please add funds to your wallet to join this match",
@@ -228,7 +230,7 @@ const FeatureMatchDetails = () => {
       // Check user is not the host
       const hostId = (match as any).host_id || match.created_by;
       if (userId === hostId) {
-        console.error("User is the host");
+        console.error("❌ User is the host");
         toast({
           title: "Cannot Join Own Match",
           description: "You cannot join a match you created",
@@ -240,7 +242,7 @@ const FeatureMatchDetails = () => {
       
       // Check match is still available
       if (!['pending', 'open'].includes(match.status) || (match as any).opponent_id) {
-        console.error("Match not available. Status:", match.status, "Opponent ID:", (match as any).opponent_id);
+        console.error("❌ Match not available. Status:", match.status, "Opponent ID:", (match as any).opponent_id);
         toast({
           title: "Match Unavailable",
           description: "This match is no longer available to join",
@@ -250,45 +252,133 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      console.log("All checks passed, attempting to update match...");
+      console.log("✅ All validation checks passed");
+
+      // Check current match state in database before attempting update
+      console.log("🔍 Checking current match state in database...");
+      const { data: currentMatchState, error: fetchError } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("id", matchId)
+        .single();
+
+      if (fetchError) {
+        console.error("❌ Error fetching current match state:", fetchError);
+        throw new Error(`Failed to verify match state: ${fetchError.message}`);
+      }
+
+      console.log("📊 Current match state in database:", currentMatchState);
+
+      if (currentMatchState.opponent_id) {
+        console.log("❌ Match already has an opponent");
+        toast({
+          title: "Match Already Taken",
+          description: "Someone else joined this match while you were trying to join",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
+      }
+
+      console.log("🚀 Attempting to update match with opponent...");
       
+      const updateData = {
+        opponent_id: userId,
+        status: "active",
+        current_players: 2,
+        start_time: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log("📝 Update data:", updateData);
+
       // Update the match with the opponent - using explicit conditions to prevent race conditions
       const { data: updatedMatch, error: matchError } = await supabase
         .from("matches")
-        .update({ 
-          opponent_id: userId,
-          status: "active",
-          current_players: 2,
-          start_time: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as any)
+        .update(updateData)
         .eq("id", matchId)
-        .eq("status", "pending") // Ensure it's still pending
-        .is("opponent_id", null) // Ensure no opponent has joined yet
+        .eq("status", "pending")
+        .is("opponent_id", null)
         .select()
         .single();
       
+      console.log("🔄 Database update response:");
+      console.log("  - Updated match data:", updatedMatch);
+      console.log("  - Error:", matchError);
+
       if (matchError) {
-        console.error("Match update error:", matchError);
-        throw new Error(`Failed to join match: ${matchError.message}`);
+        console.error("❌ Match update failed:", matchError);
+        console.error("Full error details:", {
+          code: matchError.code,
+          message: matchError.message,
+          details: matchError.details,
+          hint: matchError.hint
+        });
+        
+        if (matchError.code === 'PGRST116') {
+          toast({
+            title: "Match Already Taken",
+            description: "Someone else joined this match at the same time",
+            variant: "destructive",
+          });
+          setIsJoining(false);
+          return;
+        }
+        
+        throw new Error(`Failed to join match: ${matchError.message} (Code: ${matchError.code})`);
+      }
+
+      if (!updatedMatch) {
+        console.error("❌ No match was updated - this indicates a race condition or constraint violation");
+        toast({
+          title: "Match Already Taken",
+          description: "Someone else joined this match while you were trying to join",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
       }
       
-      console.log("Match updated successfully:", updatedMatch);
-      
+      console.log("✅ Match updated successfully:", updatedMatch);
+
+      // Verify the update worked
+      console.log("🔍 Verifying update...");
+      const { data: verificationData, error: verifyError } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("id", matchId)
+        .single();
+
+      console.log("📊 Verification result:", verificationData);
+
       // Deduct bet amount from user's balance using wallet utils
+      console.log("💰 Deducting balance...");
       const { success: deductSuccess, error: deductError } = await deductFromBalance(
         userId,
         betAmount
       );
       
       if (!deductSuccess) {
-        console.error("Balance deduction failed:", deductError);
+        console.error("❌ Balance deduction failed:", deductError);
+        // Try to rollback the match update
+        console.log("🔄 Attempting to rollback match update...");
+        await supabase
+          .from("matches")
+          .update({
+            opponent_id: null,
+            status: 'pending',
+            current_players: 1,
+            start_time: null
+          })
+          .eq("id", matchId);
+        
         throw new Error(deductError || "Failed to deduct bet amount");
       }
       
-      console.log("Balance deducted successfully, creating transaction...");
+      console.log("✅ Balance deducted successfully");
       
       // Create transaction record for bet
+      console.log("📝 Creating transaction record...");
       const { error: transactionError } = await supabase
         .from("transactions")
         .insert({
@@ -301,23 +391,30 @@ const FeatureMatchDetails = () => {
         });
       
       if (transactionError) {
-        console.error("Transaction error:", transactionError);
+        console.error("⚠️ Transaction error (non-critical):", transactionError);
         // Don't throw here, just log - the match join was successful
       } else {
-        console.log("Transaction created successfully");
+        console.log("✅ Transaction created successfully");
       }
       
       // Update balance
       const newBalance = await getUserBalance(userId);
       setCurrentUserBalance(newBalance);
       
-      console.log("Join match process completed successfully");
+      console.log("🎉 JOIN MATCH PROCESS COMPLETED SUCCESSFULLY");
       toast({
         title: "Match Joined!",
         description: "You have successfully joined this match. Good luck!",
       });
     } catch (error: any) {
-      console.error("Error joining match:", error);
+      console.error("💥 CRITICAL ERROR in join process:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      
       toast({
         title: "Error",
         description: `Failed to join match: ${error.message || 'Please try again.'}`,
