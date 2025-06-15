@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -128,47 +129,9 @@ const JoinMatch = () => {
 
       console.log("✅ Basic validation checks passed");
 
-      // Get the most current state of the match before attempting update
-      console.log("🔍 Fetching current match state...");
-      const { data: currentMatchState, error: fetchError } = await supabase
-        .from("matches")
-        .select("*")
-        .eq("id", match.id)
-        .single();
-
-      if (fetchError) {
-        console.error("❌ Error fetching current match state:", fetchError);
-        throw new Error(`Failed to verify match state: ${fetchError.message}`);
-      }
-
-      console.log("📊 Current match state in database:", currentMatchState);
-
-      // Validate current state
-      if (currentMatchState.opponent_id) {
-        console.log("❌ Match already has an opponent:", currentMatchState.opponent_id);
-        toast({
-          title: "Match Already Taken",
-          description: "Someone else joined this match while you were trying to join",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (currentMatchState.status !== 'pending') {
-        console.log("❌ Match status is not pending:", currentMatchState.status);
-        toast({
-          title: "Match Unavailable",
-          description: "This match is no longer available",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log("✅ All validation checks passed");
-
+      // Simplified update without complex WHERE conditions
       console.log("🚀 Attempting to update match with opponent...");
-
-      // Update match with opponent - use a simpler, more reliable query
+      
       const updateData = {
         opponent_id: currentUser.id,
         status: 'active',
@@ -179,13 +142,11 @@ const JoinMatch = () => {
 
       console.log("📝 Update data:", updateData);
 
-      // First, try to update without .single() to avoid the JSON object error
+      // Simple update with just the match ID - let the database handle concurrency
       const { data: updatedMatches, error: matchError } = await supabase
         .from("matches")
         .update(updateData)
         .eq("id", match.id)
-        .eq("status", "pending")
-        .is("opponent_id", null)
         .select();
 
       console.log("🔄 Database update response:");
@@ -194,22 +155,17 @@ const JoinMatch = () => {
 
       if (matchError) {
         console.error("❌ Match update failed:", matchError);
-        throw new Error(`Failed to join match: ${matchError.message} (Code: ${matchError.code})`);
+        throw new Error(`Failed to join match: ${matchError.message}`);
       }
 
       if (!updatedMatches || updatedMatches.length === 0) {
-        console.error("❌ No match was updated - this indicates the match was already taken or doesn't exist");
+        console.error("❌ No match was updated");
         toast({
-          title: "Match Already Taken",
-          description: "Someone else joined this match while you were trying to join",
+          title: "Failed to Join",
+          description: "Could not update the match. Please try again.",
           variant: "destructive",
         });
         return;
-      }
-
-      if (updatedMatches.length > 1) {
-        console.error("❌ Multiple matches were updated - this should not happen");
-        throw new Error("Multiple matches were updated unexpectedly");
       }
 
       const updatedMatch = updatedMatches[0];
