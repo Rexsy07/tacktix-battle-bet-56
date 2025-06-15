@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
@@ -116,17 +115,6 @@ const JoinMatch = () => {
         return;
       }
 
-      // Check if match is still open and available
-      if (match.status !== 'pending' || match.opponent_id) {
-        console.log("❌ Match not available. Status:", match.status, "Opponent ID:", match.opponent_id);
-        toast({
-          title: "Match Unavailable",
-          description: "This match is no longer available",
-          variant: "destructive",
-        });
-        return;
-      }
-
       // Check if user is not the host
       if (match.host_id === currentUser.id) {
         console.log("❌ User is the host");
@@ -138,10 +126,10 @@ const JoinMatch = () => {
         return;
       }
 
-      console.log("✅ All validation checks passed");
+      console.log("✅ Basic validation checks passed");
 
-      // First, let's check the current state of the match in the database
-      console.log("🔍 Checking current match state in database...");
+      // Get the most current state of the match before attempting update
+      console.log("🔍 Fetching current match state...");
       const { data: currentMatchState, error: fetchError } = await supabase
         .from("matches")
         .select("*")
@@ -155,8 +143,9 @@ const JoinMatch = () => {
 
       console.log("📊 Current match state in database:", currentMatchState);
 
+      // Validate current state
       if (currentMatchState.opponent_id) {
-        console.log("❌ Someone else joined while we were trying");
+        console.log("❌ Match already has an opponent:", currentMatchState.opponent_id);
         toast({
           title: "Match Already Taken",
           description: "Someone else joined this match while you were trying to join",
@@ -165,9 +154,21 @@ const JoinMatch = () => {
         return;
       }
 
+      if (currentMatchState.status !== 'pending') {
+        console.log("❌ Match status is not pending:", currentMatchState.status);
+        toast({
+          title: "Match Unavailable",
+          description: "This match is no longer available",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("✅ All validation checks passed");
+
       console.log("🚀 Attempting to update match with opponent...");
 
-      // Update match with opponent - using the most restrictive conditions
+      // Update match with opponent - use a simpler, more reliable query
       const updateData = {
         opponent_id: currentUser.id,
         status: 'active',
@@ -178,37 +179,26 @@ const JoinMatch = () => {
 
       console.log("📝 Update data:", updateData);
 
-      const { data: updatedMatch, error: matchError } = await supabase
+      // First, try to update without .single() to avoid the JSON object error
+      const { data: updatedMatches, error: matchError } = await supabase
         .from("matches")
         .update(updateData)
         .eq("id", match.id)
         .eq("status", "pending")
         .is("opponent_id", null)
-        .select()
-        .single();
+        .select();
 
       console.log("🔄 Database update response:");
-      console.log("  - Updated match data:", updatedMatch);
+      console.log("  - Updated matches data:", updatedMatches);
       console.log("  - Error:", matchError);
 
       if (matchError) {
         console.error("❌ Match update failed:", matchError);
-        
-        // Check if it's a constraint violation or other specific error
-        if (matchError.code === 'PGRST116') {
-          toast({
-            title: "Match Already Taken",
-            description: "Someone else joined this match at the same time",
-            variant: "destructive",
-          });
-          return;
-        }
-        
         throw new Error(`Failed to join match: ${matchError.message} (Code: ${matchError.code})`);
       }
 
-      if (!updatedMatch) {
-        console.error("❌ No match was updated - this indicates a race condition");
+      if (!updatedMatches || updatedMatches.length === 0) {
+        console.error("❌ No match was updated - this indicates the match was already taken or doesn't exist");
         toast({
           title: "Match Already Taken",
           description: "Someone else joined this match while you were trying to join",
@@ -217,18 +207,13 @@ const JoinMatch = () => {
         return;
       }
 
+      if (updatedMatches.length > 1) {
+        console.error("❌ Multiple matches were updated - this should not happen");
+        throw new Error("Multiple matches were updated unexpectedly");
+      }
+
+      const updatedMatch = updatedMatches[0];
       console.log("✅ Match updated successfully:", updatedMatch);
-
-      // Verify the update worked by checking the database again
-      console.log("🔍 Verifying update...");
-      const { data: verificationData, error: verifyError } = await supabase
-        .from("matches")
-        .select("*")
-        .eq("id", match.id)
-        .single();
-
-      console.log("📊 Verification result:", verificationData);
-      console.log("📊 Verification error:", verifyError);
 
       // Deduct bet amount from user's balance
       console.log("💰 Deducting balance...");

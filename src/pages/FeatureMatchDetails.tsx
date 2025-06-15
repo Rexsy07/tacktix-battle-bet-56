@@ -240,19 +240,7 @@ const FeatureMatchDetails = () => {
         return;
       }
       
-      // Check match is still available
-      if (!['pending', 'open'].includes(match.status) || (match as any).opponent_id) {
-        console.error("❌ Match not available. Status:", match.status, "Opponent ID:", (match as any).opponent_id);
-        toast({
-          title: "Match Unavailable",
-          description: "This match is no longer available to join",
-          variant: "destructive",
-        });
-        setIsJoining(false);
-        return;
-      }
-      
-      console.log("✅ All validation checks passed");
+      console.log("✅ Basic validation checks passed");
 
       // Check current match state in database before attempting update
       console.log("🔍 Checking current match state in database...");
@@ -280,6 +268,19 @@ const FeatureMatchDetails = () => {
         return;
       }
 
+      if (!['pending', 'open'].includes(currentMatchState.status)) {
+        console.log("❌ Match not available. Status:", currentMatchState.status);
+        toast({
+          title: "Match Unavailable",
+          description: "This match is no longer available to join",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
+      }
+
+      console.log("✅ All validation checks passed");
+
       console.log("🚀 Attempting to update match with opponent...");
       
       const updateData = {
@@ -292,44 +293,26 @@ const FeatureMatchDetails = () => {
 
       console.log("📝 Update data:", updateData);
 
-      // Update the match with the opponent - using explicit conditions to prevent race conditions
-      const { data: updatedMatch, error: matchError } = await supabase
+      // Update the match with the opponent - remove .single() to avoid JSON object error
+      const { data: updatedMatches, error: matchError } = await supabase
         .from("matches")
         .update(updateData)
         .eq("id", matchId)
         .eq("status", "pending")
         .is("opponent_id", null)
-        .select()
-        .single();
+        .select();
       
       console.log("🔄 Database update response:");
-      console.log("  - Updated match data:", updatedMatch);
+      console.log("  - Updated matches data:", updatedMatches);
       console.log("  - Error:", matchError);
 
       if (matchError) {
         console.error("❌ Match update failed:", matchError);
-        console.error("Full error details:", {
-          code: matchError.code,
-          message: matchError.message,
-          details: matchError.details,
-          hint: matchError.hint
-        });
-        
-        if (matchError.code === 'PGRST116') {
-          toast({
-            title: "Match Already Taken",
-            description: "Someone else joined this match at the same time",
-            variant: "destructive",
-          });
-          setIsJoining(false);
-          return;
-        }
-        
         throw new Error(`Failed to join match: ${matchError.message} (Code: ${matchError.code})`);
       }
 
-      if (!updatedMatch) {
-        console.error("❌ No match was updated - this indicates a race condition or constraint violation");
+      if (!updatedMatches || updatedMatches.length === 0) {
+        console.error("❌ No match was updated - this indicates the match was already taken or doesn't exist");
         toast({
           title: "Match Already Taken",
           description: "Someone else joined this match while you were trying to join",
@@ -338,18 +321,14 @@ const FeatureMatchDetails = () => {
         setIsJoining(false);
         return;
       }
-      
+
+      if (updatedMatches.length > 1) {
+        console.error("❌ Multiple matches were updated - this should not happen");
+        throw new Error("Multiple matches were updated unexpectedly");
+      }
+
+      const updatedMatch = updatedMatches[0];
       console.log("✅ Match updated successfully:", updatedMatch);
-
-      // Verify the update worked
-      console.log("🔍 Verifying update...");
-      const { data: verificationData, error: verifyError } = await supabase
-        .from("matches")
-        .select("*")
-        .eq("id", matchId)
-        .single();
-
-      console.log("📊 Verification result:", verificationData);
 
       // Deduct bet amount from user's balance using wallet utils
       console.log("💰 Deducting balance...");
