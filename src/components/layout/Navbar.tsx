@@ -2,13 +2,15 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, History, Search, LogIn, LogOut, Shield, Flame, Home, Trophy } from "lucide-react";
+import { Menu, X, User, History, Search, LogIn, LogOut, Shield, Flame, Home, Trophy, Wallet } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { getUserBalance } from "@/utils/wallet-utils";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userBalance, setUserBalance] = useState(0);
   const { user, signOut } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
@@ -25,6 +27,17 @@ const Navbar = () => {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    const fetchUserBalance = async () => {
+      if (user) {
+        const balance = await getUserBalance(user.id);
+        setUserBalance(balance);
+      }
+    };
+
+    fetchUserBalance();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -95,12 +108,20 @@ const Navbar = () => {
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-3">
             {user ? (
-              <Button variant="ghost" size="sm" className="text-sm" onClick={handleLogout}>
-                <div className="flex items-center">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </div>
-              </Button>
+              <div className="flex flex-col items-end space-y-2">
+                <Link to="/wallet">
+                  <Button variant="ghost" size="sm" className="text-sm px-4 py-2 w-32 justify-start">
+                    <Wallet className="w-4 h-4 mr-2" />
+                    ₦{userBalance.toLocaleString()}
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="sm" className="text-sm" onClick={handleLogout}>
+                  <div className="flex items-center">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </div>
+                </Button>
+              </div>
             ) : (
               <>
                 <Button variant="ghost" size="sm" className="text-sm">
@@ -145,12 +166,20 @@ const Navbar = () => {
               </Link>
             ))}
             {user ? (
-              <Button variant="ghost" className="w-full text-sm justify-start" onClick={handleLogout}>
-                <div className="flex items-center">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </div>
-              </Button>
+              <div className="pt-2 space-y-3">
+                <Link to="/wallet" className="w-full">
+                  <Button variant="ghost" className="w-full text-sm justify-start">
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Balance: ₦{userBalance.toLocaleString()}
+                  </Button>
+                </Link>
+                <Button variant="ghost" className="w-full text-sm justify-start" onClick={handleLogout}>
+                  <div className="flex items-center">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </div>
+                </Button>
+              </div>
             ) : (
               <div className="pt-2 grid grid-cols-2 gap-3">
                 <Button variant="ghost" className="w-full text-sm">
