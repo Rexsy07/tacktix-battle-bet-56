@@ -58,7 +58,6 @@ export const fetchDisputes = async (status?: string): Promise<DisputeDetails[]> 
   }
 };
 
-// Alias for compatibility with ModeratorPanel
 export const getDisputes = async (status?: string, searchQuery?: string): Promise<{ success: boolean; data: DisputeDetails[] }> => {
   try {
     const disputes = await fetchDisputes(status);
@@ -80,42 +79,50 @@ export const getDisputes = async (status?: string, searchQuery?: string): Promis
 
 export const getReportedUsers = async (status?: string, searchQuery?: string): Promise<{ success: boolean; data: ReportedUser[] }> => {
   try {
-    // For now, return mock data since we don't have a reports table
-    // In a real implementation, this would fetch from a user_reports table
-    const mockUsers: ReportedUser[] = [
-      {
-        id: "1",
-        user: {
-          id: "user1",
-          username: "TestUser1",
-          avatar_url: null,
-          is_vip: false,
-          rating: 1200,
-          total_matches: 45,
-          wins: 30,
-          losses: 15
-        },
-        reportCount: 3,
-        status: "active",
-        latestReport: {
-          created_at: new Date().toISOString()
+    // Get users who have been involved in disputes (as a proxy for reported users)
+    const { data: disputes, error: disputesError } = await supabase
+      .from("disputes")
+      .select(`
+        *,
+        reported_user:profiles!disputes_reported_by_fkey(*)
+      `)
+      .order("created_at", { ascending: false });
+
+    if (disputesError) throw disputesError;
+
+    // Group disputes by reported user and count them
+    const userReportCounts: { [key: string]: any } = {};
+    disputes?.forEach(dispute => {
+      if (dispute.reported_user) {
+        const userId = dispute.reported_user.id;
+        if (!userReportCounts[userId]) {
+          userReportCounts[userId] = {
+            user: dispute.reported_user,
+            reportCount: 0,
+            latestReport: { created_at: dispute.created_at },
+            status: "active"
+          };
+        }
+        userReportCounts[userId].reportCount++;
+        if (new Date(dispute.created_at) > new Date(userReportCounts[userId].latestReport.created_at)) {
+          userReportCounts[userId].latestReport = { created_at: dispute.created_at };
         }
       }
-    ];
-    
-    let filteredUsers = mockUsers;
+    });
+
+    let reportedUsers = Object.values(userReportCounts) as ReportedUser[];
     
     if (status && status !== "all") {
-      filteredUsers = mockUsers.filter(user => user.status === status);
+      reportedUsers = reportedUsers.filter(user => user.status === status);
     }
     
     if (searchQuery) {
-      filteredUsers = filteredUsers.filter(user => 
+      reportedUsers = reportedUsers.filter(user => 
         user.user.username.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     
-    return { success: true, data: filteredUsers };
+    return { success: true, data: reportedUsers };
   } catch (error) {
     console.error("Error getting reported users:", error);
     return { success: false, data: [] };
@@ -159,10 +166,19 @@ export const updateUserStatus = async (
   moderatorId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // In a real implementation, this would update user status
-    // For now, we'll just log the action
-    console.log(`User ${userId} ${action}ed by moderator ${moderatorId}`);
-    
+    // Create a transaction record for the moderation action
+    const { error: transactionError } = await supabase
+      .from("transactions")
+      .insert({
+        user_id: userId,
+        type: 'moderation_action',
+        amount: 0,
+        description: `User ${action}ed by moderator`,
+        status: 'completed'
+      });
+
+    if (transactionError) throw transactionError;
+
     // Update user profile to reflect the action
     const { error: profileError } = await supabase
       .from("profiles")
@@ -203,7 +219,20 @@ export const suspendUser = async (
   moderatorId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Update user profile to mark as suspended
+    // Create a suspension record
+    const { error: transactionError } = await supabase
+      .from("transactions")
+      .insert({
+        user_id: userId,
+        type: 'suspension',
+        amount: 0,
+        description: `Suspended for ${duration} days: ${reason}`,
+        status: 'completed'
+      });
+
+    if (transactionError) throw transactionError;
+
+    // Update user profile
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
@@ -244,15 +273,42 @@ export const getModeratorStats = async (moderatorId?: string): Promise<{ success
 
     if (activeError) throw activeError;
 
+    // Get flagged accounts (users with multiple disputes)
+    const { data: allDisputes, error: allDisputesError } = await supabase
+      .from("disputes")
+      .select("reported_by");
+
+    if (allDisputesError) throw allDisputesError;
+
+    const reportCounts: { [key: string]: number } = {};
+    allDisputes?.forEach(dispute => {
+      reportCounts[dispute.reported_by] = (reportCounts[dispute.reported_by] || 0) + 1;
+    });
+
+    const flaggedAccounts = Object.values(reportCounts).filter(count => count >= 3).length;
+
     const totalResolved = resolvedDisputes?.length || 0;
     const activeDisputesCount = activeDisputes?.length || 0;
-    const avgResolutionTime = "2.5"; // Would need to calculate based on created_at and updated_at
+    
+    // Calculate average resolution time from resolved disputes
+    let avgResolutionTime = "0";
+    if (resolvedDisputes && resolvedDisputes.length > 0) {
+      const totalTime = resolvedDisputes.reduce((sum, dispute) => {
+        const created = new Date(dispute.created_at);
+        const updated = new Date(dispute.updated_at);
+        return sum + (updated.getTime() - created.getTime());
+      }, 0);
+      
+      const avgTimeMs = totalTime / resolvedDisputes.length;
+      const avgTimeHours = avgTimeMs / (1000 * 60 * 60);
+      avgResolutionTime = avgTimeHours.toFixed(1);
+    }
 
     const data = {
       activeDisputes: activeDisputesCount,
-      resolvedToday: totalResolved, // This would ideally filter by today
-      avgResolutionTime,
-      flaggedAccounts: 5 // This would come from a reports system
+      resolvedToday: totalResolved,
+      avgResolutionTime: `${avgResolutionTime}h`,
+      flaggedAccounts
     };
 
     return { success: true, data };
@@ -263,7 +319,7 @@ export const getModeratorStats = async (moderatorId?: string): Promise<{ success
       data: {
         activeDisputes: 0,
         resolvedToday: 0,
-        avgResolutionTime: "0",
+        avgResolutionTime: "0h",
         flaggedAccounts: 0
       }
     };
@@ -272,22 +328,53 @@ export const getModeratorStats = async (moderatorId?: string): Promise<{ success
 
 export const fetchRecentActivity = async (): Promise<any[]> => {
   try {
-    // Fetch recent disputes for activity feed
-    const { data: disputes, error } = await supabase
-      .from("disputes")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10);
+    // Fetch recent disputes and matches for activity feed
+    const [disputesResult, matchesResult] = await Promise.all([
+      supabase
+        .from("disputes")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("matches")
+        .select("*")
+        .in("status", ["completed", "active"])
+        .order("created_at", { ascending: false })
+        .limit(5)
+    ]);
 
-    if (error) throw error;
+    const activities = [];
 
-    return disputes?.map(dispute => ({
-      id: dispute.id,
-      type: 'dispute',
-      description: `New dispute: ${dispute.reason}`,
-      timestamp: dispute.created_at,
-      status: dispute.status
-    })) || [];
+    // Add disputes to activity feed
+    if (disputesResult.data) {
+      disputesResult.data.forEach(dispute => {
+        activities.push({
+          id: dispute.id,
+          type: 'dispute',
+          description: `New dispute: ${dispute.reason}`,
+          timestamp: dispute.created_at,
+          status: dispute.status
+        });
+      });
+    }
+
+    // Add matches to activity feed
+    if (matchesResult.data) {
+      matchesResult.data.forEach(match => {
+        activities.push({
+          id: match.id,
+          type: 'match',
+          description: `Match ${match.status}: ${match.title}`,
+          timestamp: match.created_at,
+          status: match.status
+        });
+      });
+    }
+
+    // Sort by timestamp and return most recent
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    return activities.slice(0, 10);
   } catch (error) {
     console.error("Error fetching recent activity:", error);
     return [];

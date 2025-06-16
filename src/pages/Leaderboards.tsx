@@ -31,32 +31,54 @@ const Leaderboards = () => {
 
   const fetchLeaderboards = async () => {
     try {
-      // Fetch profiles with calculated win rates
-      const { data: profiles, error } = await supabase
+      // Fetch all profiles with earnings calculation
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, username, avatar_url, wins, total_matches, total_earnings, rating")
+        .select("*")
         .gt("total_matches", 0)
         .order("total_earnings", { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      const playersWithWinRate = profiles?.map(player => ({
-        ...player,
-        win_rate: player.total_matches > 0 ? (player.wins / player.total_matches) * 100 : 0
-      })) || [];
+      // Calculate real earnings from transactions for each user
+      const playersWithEarnings = await Promise.all(
+        profiles?.map(async (profile) => {
+          const { data: transactions } = await supabase
+            .from("transactions")
+            .select("amount, type")
+            .eq("user_id", profile.id)
+            .eq("status", "completed");
 
-      // Top earners (already sorted by total_earnings)
-      setTopEarners(playersWithWinRate.slice(0, 10));
+          let realEarnings = 0;
+          transactions?.forEach(tx => {
+            if (tx.type === 'win') {
+              realEarnings += tx.amount;
+            }
+          });
+
+          return {
+            ...profile,
+            total_earnings: realEarnings,
+            win_rate: profile.total_matches > 0 ? (profile.wins / profile.total_matches) * 100 : 0
+          };
+        }) || []
+      );
+
+      // Sort by actual earnings
+      const topEarnersList = [...playersWithEarnings]
+        .sort((a, b) => b.total_earnings - a.total_earnings)
+        .slice(0, 10);
+      setTopEarners(topEarnersList);
 
       // Top winners (sort by wins)
-      const topWinnersList = [...playersWithWinRate]
+      const topWinnersList = [...playersWithEarnings]
         .sort((a, b) => b.wins - a.wins)
         .slice(0, 10);
       setTopWinners(topWinnersList);
 
       // Top rated (sort by rating)
-      const topRatedList = [...playersWithWinRate]
+      const topRatedList = [...playersWithEarnings]
         .sort((a, b) => b.rating - a.rating)
         .slice(0, 10);
       setTopRated(topRatedList);

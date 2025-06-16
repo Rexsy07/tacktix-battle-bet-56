@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,147 +10,229 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Flame, Users, Trophy, Wallet, ArrowRight, Lock, Clock, Crown, Star, Plus, Search } from "lucide-react";
+import { Flame, Users, Trophy, Wallet, ArrowRight, Clock, Crown, Star, Plus, Search } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface HighStakeMatch {
   id: string;
-  mode: string;
-  map: string;
-  betAmount: number;
-  status: "open" | "ongoing" | "completed";
+  title: string;
+  game_mode: string;
+  map_name: string;
+  bet_amount: number;
+  status: "pending" | "active" | "completed";
   participants: {
-    name: string;
-    avatar: string;
-    wins: number;
-  }[];
-  createdAt: string;
+    host: any;
+    opponent: any;
+  };
+  created_at: string;
+  current_players: number;
+  max_players: number;
 }
 
 interface VipPlayer {
   id: string;
-  name: string;
-  avatar: string;
-  rank: string;
-  winRate: number;
-  totalWinnings: number;
+  username: string;
+  avatar_url: string;
+  rating: number;
+  wins: number;
+  total_matches: number;
+  total_earnings: number;
+  win_rate: number;
+  is_vip: boolean;
   status: "online" | "in-match" | "offline";
 }
 
 const VipDashboard = () => {
+  const { toast } = useToast();
   const [tab, setTab] = useState("matches");
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
+  const [highStakeMatches, setHighStakeMatches] = useState<HighStakeMatch[]>([]);
+  const [vipPlayers, setVipPlayers] = useState<VipPlayer[]>([]);
+  const [currentUserStats, setCurrentUserStats] = useState({
+    winRate: 0,
+    totalEarnings: 0,
+    vipLevel: "Standard"
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Dummy data
-  const highStakeMatches: HighStakeMatch[] = [
-    {
-      id: "vip-1",
-      mode: "Search & Destroy",
-      map: "Standoff",
-      betAmount: 50000,
-      status: "open",
-      participants: [
-        { name: "EliteSniper", avatar: "/placeholder.svg", wins: 156 },
-        { name: "TacktixPro", avatar: "/placeholder.svg", wins: 143 }
-      ],
-      createdAt: "2 minutes ago"
-    },
-    {
-      id: "vip-2",
-      mode: "1v1 Duel",
-      map: "Gulag Showers",
-      betAmount: 25000,
-      status: "ongoing",
-      participants: [
-        { name: "Shadow_Assassin", avatar: "/placeholder.svg", wins: 98 },
-        { name: "DeadlyAim", avatar: "/placeholder.svg", wins: 112 }
-      ],
-      createdAt: "15 minutes ago"
-    },
-    {
-      id: "vip-3",
-      mode: "Battle Royale",
-      map: "Isolated",
-      betAmount: 100000,
-      status: "open",
-      participants: [
-        { name: "VictoryHunter", avatar: "/placeholder.svg", wins: 201 },
-      ],
-      createdAt: "1 hour ago"
-    },
-    {
-      id: "vip-4",
-      mode: "Hardpoint",
-      map: "Nuketown",
-      betAmount: 75000,
-      status: "completed",
-      participants: [
-        { name: "TackticalGenius", avatar: "/placeholder.svg", wins: 187 },
-        { name: "SharpShooter", avatar: "/placeholder.svg", wins: 165 }
-      ],
-      createdAt: "3 hours ago"
-    }
-  ];
+  useEffect(() => {
+    fetchVipData();
+  }, []);
 
-  const vipPlayers: VipPlayer[] = [
-    {
-      id: "player-1",
-      name: "EliteSniper",
-      avatar: "/placeholder.svg",
-      rank: "Diamond I",
-      winRate: 87.5,
-      totalWinnings: 850000,
-      status: "online"
-    },
-    {
-      id: "player-2",
-      name: "Shadow_Assassin",
-      avatar: "/placeholder.svg",
-      rank: "Legendary",
-      winRate: 92.3,
-      totalWinnings: 1250000,
-      status: "in-match"
-    },
-    {
-      id: "player-3",
-      name: "VictoryHunter",
-      avatar: "/placeholder.svg",
-      rank: "Master II",
-      winRate: 78.1,
-      totalWinnings: 620000,
-      status: "online"
-    },
-    {
-      id: "player-4",
-      name: "DeadlyAim",
-      avatar: "/placeholder.svg",
-      rank: "Diamond II",
-      winRate: 83.7,
-      totalWinnings: 750000,
-      status: "offline"
+  const fetchVipData = async () => {
+    try {
+      await Promise.all([
+        fetchHighStakeMatches(),
+        fetchVipPlayers(),
+        fetchCurrentUserStats()
+      ]);
+    } catch (error) {
+      console.error("Error fetching VIP data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load VIP dashboard data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
+
+  const fetchHighStakeMatches = async () => {
+    try {
+      const { data: matches, error } = await supabase
+        .from("matches")
+        .select(`
+          *,
+          host:profiles!matches_host_id_fkey(*),
+          opponent:profiles!matches_opponent_id_fkey(*)
+        `)
+        .gte("bet_amount", 25000)
+        .in("status", ["pending", "active", "completed"])
+        .order("bet_amount", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      const formattedMatches = matches?.map(match => ({
+        id: match.id,
+        title: match.title,
+        game_mode: match.game_mode,
+        map_name: match.map_name || "TBD",
+        bet_amount: match.bet_amount,
+        status: match.status,
+        participants: {
+          host: match.host,
+          opponent: match.opponent
+        },
+        created_at: match.created_at,
+        current_players: match.current_players,
+        max_players: match.max_players
+      })) || [];
+
+      setHighStakeMatches(formattedMatches);
+    } catch (error) {
+      console.error("Error fetching high stake matches:", error);
+    }
+  };
+
+  const fetchVipPlayers = async () => {
+    try {
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("is_vip", true)
+        .gt("total_matches", 5)
+        .order("total_earnings", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const playersWithStats = profiles?.map(profile => ({
+        id: profile.id,
+        username: profile.username,
+        avatar_url: profile.avatar_url,
+        rating: profile.rating,
+        wins: profile.wins,
+        total_matches: profile.total_matches,
+        total_earnings: profile.total_earnings,
+        win_rate: profile.total_matches > 0 ? (profile.wins / profile.total_matches) * 100 : 0,
+        is_vip: profile.is_vip,
+        status: Math.random() > 0.5 ? "online" : "offline" as "online" | "offline" // Simulated status
+      })) || [];
+
+      setVipPlayers(playersWithStats);
+    } catch (error) {
+      console.error("Error fetching VIP players:", error);
+    }
+  };
+
+  const fetchCurrentUserStats = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const { data: transactions, error: transactionError } = await supabase
+        .from("transactions")
+        .select("amount, type")
+        .eq("user_id", session.user.id)
+        .eq("status", "completed");
+
+      if (transactionError) throw transactionError;
+
+      let totalEarnings = 0;
+      transactions?.forEach(tx => {
+        if (tx.type === 'win') {
+          totalEarnings += tx.amount;
+        }
+      });
+
+      const winRate = profile.total_matches > 0 ? (profile.wins / profile.total_matches) * 100 : 0;
+      const vipLevel = profile.is_vip ? "Elite" : totalEarnings > 100000 ? "Gold" : "Standard";
+
+      setCurrentUserStats({
+        winRate,
+        totalEarnings,
+        vipLevel
+      });
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+    }
+  };
 
   const filteredMatches = highStakeMatches.filter(match => {
-    const matchesQuery = match.mode.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          match.map.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          match.participants.some(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesQuery = match.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          match.game_mode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          match.map_name.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (showOnlyAvailable) {
-      return matchesQuery && match.status === "open";
+      return matchesQuery && match.status === "pending";
     }
     return matchesQuery;
   });
 
   const filteredPlayers = vipPlayers.filter(player => {
-    const matchesQuery = player.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          player.rank.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesQuery = player.username.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (showOnlyAvailable) {
       return matchesQuery && player.status === "online";
     }
     return matchesQuery;
   });
+
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minutes ago`;
+    } else if (diffInMinutes < 1440) {
+      return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    } else {
+      return `${Math.floor(diffInMinutes / 1440)} days ago`;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-tacktix-blue"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -174,17 +256,17 @@ const VipDashboard = () => {
                 <div className="flex flex-col items-center">
                   <Crown className="text-yellow-400 mb-1 h-5 w-5" />
                   <h4 className="text-sm text-gray-400">Your VIP Level</h4>
-                  <p className="text-lg font-bold text-tacktix-blue">Elite</p>
+                  <p className="text-lg font-bold text-tacktix-blue">{currentUserStats.vipLevel}</p>
                 </div>
                 <div className="flex flex-col items-center">
                   <Trophy className="text-yellow-400 mb-1 h-5 w-5" />
                   <h4 className="text-sm text-gray-400">Win Rate</h4>
-                  <p className="text-lg font-bold text-tacktix-blue">76%</p>
+                  <p className="text-lg font-bold text-tacktix-blue">{currentUserStats.winRate.toFixed(1)}%</p>
                 </div>
                 <div className="flex flex-col items-center">
                   <Wallet className="text-yellow-400 mb-1 h-5 w-5" />
                   <h4 className="text-sm text-gray-400">Total Earnings</h4>
-                  <p className="text-lg font-bold text-tacktix-blue">₦435,000</p>
+                  <p className="text-lg font-bold text-tacktix-blue">₦{currentUserStats.totalEarnings.toLocaleString()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -244,51 +326,56 @@ const VipDashboard = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          {match.status === "open" && (
+                          {match.status === "pending" && (
                             <Badge variant="success" size="sm">Open to Join</Badge>
                           )}
-                          {match.status === "ongoing" && (
+                          {match.status === "active" && (
                             <Badge variant="badge" size="sm" className="animate-pulse">In Progress</Badge>
                           )}
                           {match.status === "completed" && (
                             <Badge variant="secondary" size="sm">Completed</Badge>
                           )}
-                          <span className="text-xs text-gray-400">{match.createdAt}</span>
+                          <span className="text-xs text-gray-400">{getTimeAgo(match.created_at)}</span>
                         </div>
                         <h3 className="text-lg font-semibold flex items-center">
-                          {match.mode}
+                          {match.title}
                           <span className="mx-2 text-gray-500">•</span>
-                          {match.map}
+                          {match.map_name}
                         </h3>
-                        <p className="text-tacktix-blue font-bold text-xl mt-1">₦{match.betAmount.toLocaleString()}</p>
+                        <p className="text-tacktix-blue font-bold text-xl mt-1">₦{match.bet_amount.toLocaleString()}</p>
                       </div>
                       <div className="flex flex-col items-end">
                         <div className="flex -space-x-3">
-                          {match.participants.map((player, index) => (
-                            <Avatar key={index} className="border-2 border-tacktix-dark-deeper">
-                              <AvatarImage src={player.avatar} alt={player.name} />
-                              <AvatarFallback>{player.name.substring(0, 2)}</AvatarFallback>
+                          {match.participants.host && (
+                            <Avatar className="border-2 border-tacktix-dark-deeper">
+                              <AvatarImage src={match.participants.host.avatar_url} alt={match.participants.host.username} />
+                              <AvatarFallback>{match.participants.host.username?.substring(0, 2)}</AvatarFallback>
                             </Avatar>
-                          ))}
-                          {match.status === "open" && (
+                          )}
+                          {match.participants.opponent ? (
+                            <Avatar className="border-2 border-tacktix-dark-deeper">
+                              <AvatarImage src={match.participants.opponent.avatar_url} alt={match.participants.opponent.username} />
+                              <AvatarFallback>{match.participants.opponent.username?.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                          ) : match.status === "pending" && (
                             <div className="h-10 w-10 rounded-full bg-tacktix-blue/20 flex items-center justify-center border-2 border-tacktix-dark-deeper">
                               <Plus className="h-5 w-5 text-tacktix-blue" />
                             </div>
                           )}
                         </div>
                         <span className="text-sm text-gray-400 mt-2">
-                          {match.participants.length} of 2 players
+                          {match.current_players} of {match.max_players} players
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="bg-tacktix-dark-deeper flex items-center justify-center p-4 md:w-[180px]">
-                    {match.status === "open" && (
+                    {match.status === "pending" && (
                       <Button variant="gradient" className="w-full">
                         Join Match
                       </Button>
                     )}
-                    {match.status === "ongoing" && (
+                    {match.status === "active" && (
                       <Button variant="outline" className="w-full flex items-center justify-center gap-2">
                         <Clock className="h-4 w-4" />
                         Spectate
@@ -321,7 +408,7 @@ const VipDashboard = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Player</TableHead>
-                  <TableHead>Rank</TableHead>
+                  <TableHead>Rating</TableHead>
                   <TableHead>Win Rate</TableHead>
                   <TableHead>Total Winnings</TableHead>
                   <TableHead>Status</TableHead>
@@ -334,22 +421,22 @@ const VipDashboard = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage src={player.avatar} alt={player.name} />
-                          <AvatarFallback>{player.name.substring(0, 2)}</AvatarFallback>
+                          <AvatarImage src={player.avatar_url} alt={player.username} />
+                          <AvatarFallback>{player.username?.substring(0, 2)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{player.name}</span>
+                        <span className="font-medium">{player.username}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-tacktix-blue/10">
-                        {player.rank}
+                        {player.rating}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-tacktix-blue font-semibold">{player.winRate}%</span>
+                      <span className="text-tacktix-blue font-semibold">{player.win_rate.toFixed(1)}%</span>
                     </TableCell>
                     <TableCell>
-                      <span>₦{player.totalWinnings.toLocaleString()}</span>
+                      <span>₦{player.total_earnings.toLocaleString()}</span>
                     </TableCell>
                     <TableCell>
                       {player.status === "online" && (

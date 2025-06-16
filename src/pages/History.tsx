@@ -4,7 +4,6 @@ import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Trophy, Target, TrendingUp, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -21,11 +20,13 @@ interface Match {
   id: string;
   title: string;
   game_mode: string;
-  entry_fee: number;
+  bet_amount: number;
   prize_pool: number;
   status: string;
   created_at: string;
   winner_id: string | null;
+  host_id: string | null;
+  opponent_id: string | null;
 }
 
 const History = () => {
@@ -39,6 +40,7 @@ const History = () => {
   });
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthAndFetchData();
@@ -57,57 +59,76 @@ const History = () => {
       return;
     }
 
-    await Promise.all([fetchUserStats(session.user.id), fetchUserMatches(session.user.id)]);
-  };
-
-  const fetchUserStats = async (userId: string) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) throw error;
-
-      if (profile) {
-        setUserStats({
-          matches_played: profile.total_matches || 0,
-          matches_won: profile.wins || 0,
-          win_rate: profile.total_matches > 0 ? ((profile.wins || 0) / profile.total_matches) * 100 : 0,
-          total_earnings: profile.total_earnings || 0
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching user stats:", error);
-    }
+    setCurrentUserId(session.user.id);
+    await Promise.all([
+      fetchUserMatches(session.user.id),
+      fetchUserEarnings(session.user.id)
+    ]);
   };
 
   const fetchUserMatches = async (userId: string) => {
     try {
-      // Get matches where user participated
-      const { data: participations, error: participationError } = await supabase
-        .from("match_participants")
-        .select("match_id")
-        .eq("user_id", userId);
+      // Get matches where user is either host or opponent
+      const { data: matchData, error: matchError } = await supabase
+        .from("matches")
+        .select("*")
+        .or(`host_id.eq.${userId},opponent_id.eq.${userId}`)
+        .order("created_at", { ascending: false });
 
-      if (participationError) throw participationError;
+      if (matchError) throw matchError;
 
-      if (participations && participations.length > 0) {
-        const matchIds = participations.map(p => p.match_id);
+      if (matchData) {
+        setMatches(matchData);
         
-        const { data: matchData, error: matchError } = await supabase
-          .from("matches")
-          .select("*")
-          .in("id", matchIds)
-          .order("created_at", { ascending: false });
+        // Calculate stats from actual matches
+        const totalMatches = matchData.length;
+        const completedMatches = matchData.filter(m => m.status === 'completed');
+        const wins = completedMatches.filter(m => m.winner_id === userId).length;
+        const winRate = completedMatches.length > 0 ? (wins / completedMatches.length) * 100 : 0;
 
-        if (matchError) throw matchError;
-
-        setMatches(matchData || []);
+        setUserStats(prev => ({
+          ...prev,
+          matches_played: totalMatches,
+          matches_won: wins,
+          win_rate: winRate
+        }));
       }
     } catch (error) {
       console.error("Error fetching user matches:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch match history",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchUserEarnings = async (userId: string) => {
+    try {
+      // Get total earnings from transactions
+      const { data: transactions, error } = await supabase
+        .from("transactions")
+        .select("amount, type")
+        .eq("user_id", userId)
+        .eq("status", "completed");
+
+      if (error) throw error;
+
+      let totalEarnings = 0;
+      transactions?.forEach(tx => {
+        if (tx.type === 'win') {
+          totalEarnings += tx.amount;
+        } else if (tx.type === 'deposit') {
+          // Don't count deposits as earnings
+        }
+      });
+
+      setUserStats(prev => ({
+        ...prev,
+        total_earnings: totalEarnings
+      }));
+    } catch (error) {
+      console.error("Error fetching user earnings:", error);
     } finally {
       setIsLoading(false);
     }
@@ -119,11 +140,19 @@ const History = () => {
         return 'bg-green-500/10 text-green-500 border-green-500/20';
       case 'active':
         return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'pending':
+        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
       case 'cancelled':
         return 'bg-red-500/10 text-red-500 border-red-500/20';
       default:
         return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
     }
+  };
+
+  const getMatchResult = (match: Match) => {
+    if (match.status !== 'completed') return null;
+    if (match.winner_id === currentUserId) return 'Won';
+    return 'Lost';
   };
 
   const formatDate = (dateString: string) => {
@@ -223,10 +252,15 @@ const History = () => {
                         <Badge variant="outline" className={getMatchStatusColor(match.status)}>
                           {match.status}
                         </Badge>
+                        {getMatchResult(match) && (
+                          <Badge variant={getMatchResult(match) === 'Won' ? 'default' : 'secondary'}>
+                            {getMatchResult(match)}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-400">
                         <span>{match.game_mode}</span>
-                        <span>Entry: ₦{match.entry_fee.toLocaleString()}</span>
+                        <span>Bet: ₦{match.bet_amount.toLocaleString()}</span>
                         <span>Prize: ₦{match.prize_pool.toLocaleString()}</span>
                         <span>{formatDate(match.created_at)}</span>
                       </div>
