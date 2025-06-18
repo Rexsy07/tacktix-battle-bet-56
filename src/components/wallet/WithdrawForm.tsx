@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle } from "lucide-react";
 import { deductFromBalance } from "@/utils/wallet-utils";
+import BankSearchSelect from "./BankSearchSelect";
 
 interface WithdrawFormProps {
   currentBalance: number;
@@ -18,7 +18,7 @@ interface WithdrawFormProps {
 const WithdrawForm = ({ currentBalance, onSuccess }: WithdrawFormProps) => {
   const { toast } = useToast();
   const [amount, setAmount] = useState("");
-  const [bankName, setBankName] = useState("");
+  const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -43,7 +43,7 @@ const WithdrawForm = ({ currentBalance, onSuccess }: WithdrawFormProps) => {
         throw new Error("Withdrawal amount exceeds available balance");
       }
 
-      if (!bankName || !accountNumber || !accountName) {
+      if (!bankCode || !accountNumber || !accountName) {
         throw new Error("Please fill in all bank details");
       }
       
@@ -69,7 +69,7 @@ const WithdrawForm = ({ currentBalance, onSuccess }: WithdrawFormProps) => {
           amount: withdrawAmount,
           type: "withdrawal",
           status: "pending", // Withdrawals need approval
-          description: `Withdrawal to ${bankName} - ${accountNumber} (${accountName})`
+          description: `Withdrawal to ${bankCode} - ${accountNumber} (${accountName})`
         });
       
       if (transactionError) throw transactionError;
@@ -87,7 +87,7 @@ const WithdrawForm = ({ currentBalance, onSuccess }: WithdrawFormProps) => {
       // Reset form after a delay
       setTimeout(() => {
         setAmount("");
-        setBankName("");
+        setBankCode("");
         setAccountNumber("");
         setAccountName("");
         setIsSuccess(false);
@@ -130,28 +130,11 @@ const WithdrawForm = ({ currentBalance, onSuccess }: WithdrawFormProps) => {
             </p>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="bank-name">Bank Name</Label>
-            <Select 
-              value={bankName} 
-              onValueChange={setBankName}
-              disabled={isLoading || isSuccess}
-            >
-              <SelectTrigger id="bank-name">
-                <SelectValue placeholder="Select your bank" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="access_bank">Access Bank</SelectItem>
-                <SelectItem value="first_bank">First Bank</SelectItem>
-                <SelectItem value="gt_bank">GT Bank</SelectItem>
-                <SelectItem value="zenith_bank">Zenith Bank</SelectItem>
-                <SelectItem value="uba">UBA</SelectItem>
-                <SelectItem value="fidelity_bank">Fidelity Bank</SelectItem>
-                <SelectItem value="union_bank">Union Bank</SelectItem>
-                <SelectItem value="sterling_bank">Sterling Bank</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <BankSearchSelect
+            value={bankCode}
+            onValueChange={setBankCode}
+            disabled={isLoading || isSuccess}
+          />
           
           <div className="space-y-2">
             <Label htmlFor="account-number">Account Number</Label>

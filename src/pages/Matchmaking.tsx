@@ -470,8 +470,8 @@ const Matchmaking = () => {
               setActiveMode={setActiveMode}
               selectedMap={selectedMap}
               setSelectedMap={setSelectedMap}
-              selectedTeamSize={selectedTeamSize}
-              setSelectedTeamSize={setSelectedTeamSize}
+              teamSize={selectedTeamSize}
+              setTeamSize={setSelectedTeamSize}
               activeGameMode={activeGameMode}
               availableTeamSizes={availableTeamSizes}
               teamSizes={teamSizes}
