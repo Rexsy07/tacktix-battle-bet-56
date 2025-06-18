@@ -263,6 +263,7 @@ export type Database = {
           entry_fee: number
           game_mode: string
           host_id: string | null
+          host_notes: string | null
           id: string
           is_featured: boolean | null
           is_vip_match: boolean | null
@@ -272,6 +273,7 @@ export type Database = {
           match_started_at: string | null
           max_players: number
           opponent_id: string | null
+          platform_fee: number | null
           prize_pool: number
           scheduled_time: string | null
           start_time: string | null
@@ -291,6 +293,7 @@ export type Database = {
           entry_fee?: number
           game_mode: string
           host_id?: string | null
+          host_notes?: string | null
           id?: string
           is_featured?: boolean | null
           is_vip_match?: boolean | null
@@ -300,6 +303,7 @@ export type Database = {
           match_started_at?: string | null
           max_players?: number
           opponent_id?: string | null
+          platform_fee?: number | null
           prize_pool?: number
           scheduled_time?: string | null
           start_time?: string | null
@@ -319,6 +323,7 @@ export type Database = {
           entry_fee?: number
           game_mode?: string
           host_id?: string | null
+          host_notes?: string | null
           id?: string
           is_featured?: boolean | null
           is_vip_match?: boolean | null
@@ -328,6 +333,7 @@ export type Database = {
           match_started_at?: string | null
           max_players?: number
           opponent_id?: string | null
+          platform_fee?: number | null
           prize_pool?: number
           scheduled_time?: string | null
           start_time?: string | null
@@ -350,6 +356,38 @@ export type Database = {
             columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_earnings: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          match_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_earnings_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
             referencedColumns: ["id"]
           },
         ]
@@ -409,12 +447,18 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
+          country: string | null
           created_at: string | null
+          date_of_birth: string | null
+          favorite_game: string | null
+          gaming_experience: string | null
           id: string
           is_moderator: boolean | null
           is_vip: boolean | null
           losses: number | null
           phone: string | null
+          preferred_game_modes: string[] | null
           rating: number | null
           skill_level: string | null
           total_earnings: number | null
@@ -425,12 +469,18 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
+          favorite_game?: string | null
+          gaming_experience?: string | null
           id: string
           is_moderator?: boolean | null
           is_vip?: boolean | null
           losses?: number | null
           phone?: string | null
+          preferred_game_modes?: string[] | null
           rating?: number | null
           skill_level?: string | null
           total_earnings?: number | null
@@ -441,12 +491,18 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
+          favorite_game?: string | null
+          gaming_experience?: string | null
           id?: string
           is_moderator?: boolean | null
           is_vip?: boolean | null
           losses?: number | null
           phone?: string | null
+          preferred_game_modes?: string[] | null
           rating?: number | null
           skill_level?: string | null
           total_earnings?: number | null

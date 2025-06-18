@@ -3,12 +3,14 @@ import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, ArrowRight, Copy } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Users, ArrowRight, Copy, Crown } from "lucide-react";
 import MatchTypeCard from "@/components/ui/MatchTypeCard";
 import { useToast } from "@/components/ui/use-toast";
-import { generateLobbyCode } from "@/utils/matchmaking-helpers";
 
 interface CreateMatchTabProps {
   gameModes: any[];
@@ -54,22 +56,21 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
   currentUser
 }) => {
   const { toast } = useToast();
-  const [lobbyCode, setLobbyCode] = useState(generateLobbyCode);
-  const [customLobbyCode, setCustomLobbyCode] = useState("");
+  const [lobbyCode, setLobbyCode] = useState("");
+  const [hostNotes, setHostNotes] = useState("");
+  const [isVIPMatch, setIsVIPMatch] = useState(false);
 
   const copyLobbyCode = () => {
-    navigator.clipboard.writeText(customLobbyCode || lobbyCode);
+    navigator.clipboard.writeText(lobbyCode);
     toast({
       title: "Copied!",
       description: "Lobby code copied to clipboard",
     });
   };
 
-  const handleGenerateNewCode = () => {
-    const newCode = generateLobbyCode();
-    setLobbyCode(newCode);
-    setCustomLobbyCode("");
-  };
+  // Calculate platform fee (10% of entry fee)
+  const platformFee = selectedBetAmount * 0.10;
+  const prizePool = selectedBetAmount * 2 - platformFee;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -170,25 +171,14 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-medium">Lobby Code</label>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={handleGenerateNewCode}
-              >
-                Generate New
-              </Button>
-            </div>
-            
+            <label className="text-sm font-medium">Lobby Code</label>
             <div className="flex gap-2">
               <Input
-                value={customLobbyCode || lobbyCode}
-                onChange={(e) => setCustomLobbyCode(e.target.value.toUpperCase())}
-                placeholder="Enter custom lobby code"
+                value={lobbyCode}
+                onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
+                placeholder="Enter your lobby code"
                 className="bg-tacktix-dark-light text-white"
                 maxLength={8}
               />
@@ -197,13 +187,55 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
                 size="icon"
                 onClick={copyLobbyCode}
                 className="bg-tacktix-dark-light border-white/10"
+                disabled={!lobbyCode}
               >
                 <Copy size={16} />
               </Button>
             </div>
             <p className="text-xs text-gray-400">
-              Share this code with your opponent. They'll need it to join the match.
+              Enter a custom lobby code that opponents will use to join your match.
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Host Notes (Optional)</label>
+            <Textarea
+              value={hostNotes}
+              onChange={(e) => setHostNotes(e.target.value)}
+              placeholder="Add any additional information for your opponent..."
+              className="bg-tacktix-dark-light text-white"
+              rows={3}
+            />
+            <p className="text-xs text-gray-400">
+              Share game rules, requirements, or any other details with your opponent.
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="vip-match"
+              checked={isVIPMatch}
+              onCheckedChange={setIsVIPMatch}
+            />
+            <Label htmlFor="vip-match" className="flex items-center">
+              <Crown className="h-4 w-4 mr-1 text-yellow-500" />
+              VIP Match (High Stakes)
+            </Label>
+          </div>
+
+          <div className="space-y-2 p-3 bg-tacktix-dark-light/50 rounded-lg">
+            <div className="flex justify-between text-sm">
+              <span>Entry Fee:</span>
+              <span>₦{selectedBetAmount.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Platform Fee (10%):</span>
+              <span>₦{platformFee.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm font-medium">
+              <span>Prize Pool:</span>
+              <span className="text-green-500">₦{prizePool.toLocaleString()}</span>
+            </div>
           </div>
           
           {currentUser && (
@@ -218,7 +250,7 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
             variant="gradient" 
             className="w-full" 
             onClick={handleCreateMatch}
-            disabled={isCreatingMatch || !selectedMap || selectedBetAmount < 1000 || !currentUser}
+            disabled={isCreatingMatch || !selectedMap || !lobbyCode || selectedBetAmount < 1000 || !currentUser}
           >
             {isCreatingMatch ? (
               <>
@@ -227,7 +259,7 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
               </>
             ) : (
               <>
-                Create Match
+                Create {isVIPMatch ? "VIP " : ""}Match
                 <ArrowRight size={16} className="ml-2" />
               </>
             )}
@@ -244,9 +276,17 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
           <div className="rounded-lg overflow-hidden border border-white/10">
             <div className="bg-gradient-to-r from-tacktix-dark-deeper to-tacktix-dark p-4 border-b border-white/10">
               <div className="flex justify-between items-center">
-                <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
-                  {activeGameMode?.name || "Select a mode"}
-                </Badge>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
+                    {activeGameMode?.name || "Select a mode"}
+                  </Badge>
+                  {isVIPMatch && (
+                    <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">
+                      <Crown className="h-3 w-3 mr-1" />
+                      VIP
+                    </Badge>
+                  )}
+                </div>
                 <div className="text-tacktix-blue font-bold">
                   {selectedBetAmount ? `₦${selectedBetAmount.toLocaleString()}` : "₦0"}
                 </div>
@@ -273,9 +313,18 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
                 <div>
                   <div className="text-sm text-gray-400 mb-2">Lobby Code</div>
                   <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-center font-mono font-medium text-lg">
-                    {customLobbyCode || lobbyCode || "XXXXXX"}
+                    {lobbyCode || "Enter lobby code"}
                   </div>
                 </div>
+
+                {hostNotes && (
+                  <div>
+                    <div className="text-sm text-gray-400 mb-2">Host Notes</div>
+                    <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">
+                      {hostNotes}
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <div className="text-sm text-gray-400 mb-2">Match Rules</div>
@@ -283,7 +332,8 @@ const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
                     <p>• Standard {activeGameMode?.name || "game"} rules apply</p>
                     <p>• First to reach the objective wins</p>
                     <p>• Screenshots of results required</p>
-                    <p>• Report results immediately after match</p>
+                    <p>• Platform fee: ₦{platformFee.toLocaleString()}</p>
+                    <p>• Winner takes: ₦{prizePool.toLocaleString()}</p>
                   </div>
                 </div>
               </div>

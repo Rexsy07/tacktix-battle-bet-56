@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BrowseMatchesTab from "@/components/matchmaking/BrowseMatchesTab";
 import FindMatchTab from "@/components/matchmaking/FindMatchTab";
 import CreateMatchTab from "@/components/matchmaking/CreateMatchTab";
-import { formatTimeRemaining, generateLobbyCode } from "@/utils/matchmaking-helpers";
+import { formatTimeRemaining } from "@/utils/matchmaking-helpers";
 import { getUserBalance } from "@/utils/wallet-utils";
 
 const gameModes = [
@@ -36,6 +35,7 @@ const betAmounts = [1000, 2000, 3000, 5000, 10000];
 const Matchmaking = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeMode, setActiveMode] = useState("search_destroy");
   const [selectedMap, setSelectedMap] = useState("");
@@ -48,25 +48,32 @@ const Matchmaking = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [lobbyCode, setLobbyCode] = useState("");
+  const [hostNotes, setHostNotes] = useState("");
+  const [isVIPMatch, setIsVIPMatch] = useState(false);
   
   const activeGameMode = gameModes.find(mode => mode.id === activeMode);
   const availableTeamSizes = teamSizes.filter(size => size.modes.includes(activeMode));
 
   useEffect(() => {
+    // Check URL params for VIP mode
+    if (searchParams.get('vip') === 'true') {
+      setIsVIPMatch(true);
+      setSelectedBetAmount(10000); // Set minimum VIP bet amount
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const fetchMatches = async () => {
       setLoading(true);
       try {
-        // Check if user is logged in
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setCurrentUser(session.user);
-          
-          // Fetch user's wallet balance
           const balance = await getUserBalance(session.user.id);
           setWalletBalance(balance);
         }
         
-        // Fetch matches with a simpler query first
         const { data: matchesData, error: matchesError } = await supabase
           .from('matches')
           .select('*')
@@ -79,7 +86,6 @@ const Matchmaking = () => {
           throw matchesError;
         }
         
-        // If we have matches, fetch host profiles separately
         if (matchesData && matchesData.length > 0) {
           const hostIds = [...new Set(matchesData.map(match => match.host_id).filter(Boolean))];
           
@@ -90,7 +96,6 @@ const Matchmaking = () => {
               .in('id', hostIds);
               
             if (!profilesError && profilesData) {
-              // Combine matches with host profiles
               const matchesWithHosts = matchesData.map(match => ({
                 ...match,
                 host: profilesData.find(profile => profile.id === match.host_id)
@@ -119,14 +124,10 @@ const Matchmaking = () => {
     };
     
     fetchMatches();
-    
-    // Set up a polling interval to refresh matches
-    const interval = setInterval(fetchMatches, 30000); // Refresh every 30 seconds
-    
+    const interval = setInterval(fetchMatches, 30000);
     return () => clearInterval(interval);
   }, [toast]);
 
-  // Add real-time subscription for match updates
   useEffect(() => {
     console.log("Setting up real-time subscription for matches");
     
@@ -140,7 +141,6 @@ const Matchmaking = () => {
         console.log("Real-time matches update received:", payload);
         
         if (payload.eventType === 'UPDATE' && payload.new.opponent_id) {
-          // Match was joined, remove it from pending matches or update it
           setMatches(prevMatches => 
             prevMatches.filter(match => match.id !== payload.new.id)
           );
@@ -150,7 +150,6 @@ const Matchmaking = () => {
             description: "A match has been joined by another player",
           });
         } else if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
-          // New match created, add it to the list
           const { data: hostProfile } = await supabase
             .from('profiles')
             .select('id, username, avatar_url')
@@ -192,11 +191,29 @@ const Matchmaking = () => {
       });
       return;
     }
+
+    if (!lobbyCode) {
+      toast({
+        title: "Lobby Code Required",
+        description: "Please enter a lobby code for the match",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (selectedBetAmount < 1000) {
       toast({
         title: "Invalid Bet Amount",
         description: "Minimum bet amount is ₦1,000",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isVIPMatch && selectedBetAmount < 10000) {
+      toast({
+        title: "Invalid VIP Bet Amount",
+        description: "Minimum VIP bet amount is ₦10,000",
         variant: "destructive",
       });
       return;
@@ -215,8 +232,8 @@ const Matchmaking = () => {
     setIsCreatingMatch(true);
     
     try {
-      // Generate a random lobby code
-      const lobbyCode = generateLobbyCode();
+      const platformFee = selectedBetAmount * 0.10;
+      const prizePool = selectedBetAmount * 2 - platformFee;
       
       console.log("Creating match with data:", {
         created_by: currentUser.id,
@@ -227,16 +244,17 @@ const Matchmaking = () => {
         map_name: selectedMap,
         bet_amount: selectedBetAmount,
         entry_fee: selectedBetAmount,
-        prize_pool: selectedBetAmount * 2,
+        prize_pool: prizePool,
+        platform_fee: platformFee,
         lobby_code: lobbyCode,
+        host_notes: hostNotes,
         team_size: selectedTeamSize,
         status: 'pending',
-        is_vip_match: false,
+        is_vip_match: isVIPMatch,
         max_players: 2,
         current_players: 1
       });
       
-      // Insert new match into the database
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
         .insert({
@@ -248,11 +266,13 @@ const Matchmaking = () => {
           map_name: selectedMap,
           bet_amount: selectedBetAmount,
           entry_fee: selectedBetAmount,
-          prize_pool: selectedBetAmount * 2,
+          prize_pool: prizePool,
+          platform_fee: platformFee,
           lobby_code: lobbyCode,
+          host_notes: hostNotes,
           team_size: selectedTeamSize,
           status: 'pending',
-          is_vip_match: false,
+          is_vip_match: isVIPMatch,
           max_players: 2,
           current_players: 1
         })
@@ -267,11 +287,10 @@ const Matchmaking = () => {
       console.log("Match created successfully:", matchData);
       
       toast({
-        title: "Match Created!",
+        title: `${isVIPMatch ? "VIP " : ""}Match Created!`,
         description: `Your ${activeGameMode!.name} match on ${selectedMap} has been created.`,
       });
       
-      // Navigate to the featured match details page
       navigate(`/featured-match/${matchData.id}`);
     } catch (error: any) {
       console.error("Error creating match:", error);
@@ -318,7 +337,6 @@ const Matchmaking = () => {
     setIsSearchingMatch(true);
     
     try {
-      // Find a matching game
       const { data, error } = await supabase
         .from('matches')
         .select('*')
@@ -333,10 +351,8 @@ const Matchmaking = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        // Found a match, navigate to join page
         navigate(`/join-match/${data[0].id}`);
       } else {
-        // No match found, create one
         toast({
           title: "No Matches Found",
           description: "We'll create a new match for you instead.",
@@ -403,7 +419,7 @@ const Matchmaking = () => {
           </div>
         </div>
         
-        <Tabs defaultValue="browse" className="w-full">
+        <Tabs defaultValue={searchParams.get('tab') || "browse"} className="w-full">
           <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
             <TabsTrigger value="browse">Browse Matches</TabsTrigger>
             <TabsTrigger value="find" id="find-tab">Find Match</TabsTrigger>
@@ -468,6 +484,12 @@ const Matchmaking = () => {
               isCreatingMatch={isCreatingMatch}
               handleCreateMatch={handleCreateMatch}
               currentUser={currentUser}
+              lobbyCode={lobbyCode}
+              setLobbyCode={setLobbyCode}
+              hostNotes={hostNotes}
+              setHostNotes={setHostNotes}
+              isVIPMatch={isVIPMatch}
+              setIsVIPMatch={setIsVIPMatch}
             />
           </TabsContent>
         </Tabs>
