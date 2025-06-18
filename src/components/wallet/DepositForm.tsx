@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle } from "lucide-react";
-import { addToBalance } from "@/utils/wallet-utils";
+import { Loader2, ArrowRight } from "lucide-react";
+import DepositInstructions from "./DepositInstructions";
+import PendingDeposits from "./PendingDeposits";
 
 interface DepositFormProps {
   onSuccess?: () => void;
@@ -17,11 +17,11 @@ interface DepositFormProps {
 const DepositForm = ({ onSuccess }: DepositFormProps) => {
   const { toast } = useToast();
   const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [transactionId, setTransactionId] = useState("");
 
-  const handleDeposit = async (e: React.FormEvent) => {
+  const handleDepositRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
@@ -43,47 +43,28 @@ const DepositForm = ({ onSuccess }: DepositFormProps) => {
         throw new Error("You must be logged in to make a deposit");
       }
       
-      // Add to user's balance
-      const { success, error: balanceError } = await addToBalance(session.user.id, depositAmount);
-      
-      if (!success) {
-        throw new Error(balanceError || "Failed to add funds to wallet");
-      }
-
-      // Create a deposit transaction
-      const { error: transactionError } = await supabase
+      // Create a pending deposit transaction
+      const { data: transaction, error: transactionError } = await supabase
         .from("transactions")
         .insert({
           user_id: session.user.id,
           amount: depositAmount,
           type: "deposit",
-          status: "completed",
-          description: `Deposit via ${paymentMethod.replace('_', ' ')}`
-        });
+          status: "pending",
+          description: `Bank transfer deposit request for ₦${depositAmount.toLocaleString()}`
+        })
+        .select()
+        .single();
       
       if (transactionError) throw transactionError;
       
-      setIsSuccess(true);
-      toast({
-        title: "Deposit Successful",
-        description: `₦${depositAmount.toLocaleString()} has been added to your account`,
-        variant: "default",
-      });
-
-      // Call success callback
-      onSuccess?.();
-      
-      // Reset form after a delay
-      setTimeout(() => {
-        setAmount("");
-        setPaymentMethod("bank_transfer");
-        setIsSuccess(false);
-      }, 3000);
+      setTransactionId(transaction.id);
+      setShowInstructions(true);
       
     } catch (error: any) {
       toast({
-        title: "Deposit Failed",
-        description: error.message || "Failed to process deposit",
+        title: "Request Failed",
+        description: error.message || "Failed to process deposit request",
         variant: "destructive",
       });
     } finally {
@@ -91,78 +72,90 @@ const DepositForm = ({ onSuccess }: DepositFormProps) => {
     }
   };
 
+  const handleBack = () => {
+    setShowInstructions(false);
+    setAmount("");
+    setTransactionId("");
+  };
+
+  const handleConfirmSent = () => {
+    setShowInstructions(false);
+    setAmount("");
+    setTransactionId("");
+    onSuccess?.();
+    
+    toast({
+      title: "Transfer Confirmed",
+      description: "We will verify your transfer and credit your account within 24 hours",
+    });
+  };
+
+  if (showInstructions) {
+    return (
+      <DepositInstructions
+        amount={parseFloat(amount)}
+        transactionId={transactionId}
+        onBack={handleBack}
+        onConfirmSent={handleConfirmSent}
+      />
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Deposit Funds</CardTitle>
-        <CardDescription>Add money to your wallet securely</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleDeposit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (₦)</Label>
-            <Input
-              id="amount"
-              type="number"
-              placeholder="Enter amount (min. ₦100)"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-              min="100"
-              max="1000000"
-              disabled={isLoading || isSuccess}
-            />
-            <p className="text-xs text-gray-500">
-              Minimum: ₦100 • Maximum: ₦1,000,000
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="payment-method">Payment Method</Label>
-            <Select 
-              value={paymentMethod} 
-              onValueChange={setPaymentMethod}
-              disabled={isLoading || isSuccess}
+    <div className="space-y-6">
+      <PendingDeposits />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Deposit Funds</CardTitle>
+          <CardDescription>Add money to your wallet via bank transfer</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleDepositRequest} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount (₦)</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="Enter amount (min. ₦100)"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                min="100"
+                max="1000000"
+                disabled={isLoading}
+              />
+              <p className="text-xs text-gray-500">
+                Minimum: ₦100 • Maximum: ₦1,000,000
+              </p>
+            </div>
+            
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading}
             >
-              <SelectTrigger id="payment-method">
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bank_transfer">Bank Transfer (1% fee)</SelectItem>
-                <SelectItem value="card">Credit/Debit Card (1.5% fee)</SelectItem>
-                <SelectItem value="ussd">USSD (1% fee)</SelectItem>
-                <SelectItem value="mobile_money">Mobile Money (1.2% fee)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full" 
-            disabled={isLoading || isSuccess}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : isSuccess ? (
-              <>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Deposit Successful
-              </>
-            ) : (
-              "Deposit Funds"
-            )}
-          </Button>
-        </form>
-      </CardContent>
-      <CardFooter className="flex flex-col text-sm text-gray-500 space-y-2">
-        <p>• Funds are available immediately after confirmation</p>
-        <p>• All transactions are secured with bank-level encryption</p>
-        <p>• VIP members enjoy reduced fees</p>
-      </CardFooter>
-    </Card>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Next: Get Bank Details
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col text-sm text-gray-500 space-y-2">
+          <p>• Make a bank transfer to our account with your User ID</p>
+          <p>• Deposits are verified within 1-24 hours during business days</p>
+          <p>• All transactions are secured and monitored</p>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 

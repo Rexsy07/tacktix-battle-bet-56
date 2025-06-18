@@ -1,344 +1,321 @@
 
-import React, { useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Users, ArrowRight, Copy, Crown } from "lucide-react";
-import MatchTypeCard from "@/components/ui/MatchTypeCard";
-import { useToast } from "@/components/ui/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Crown, Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateMatchTabProps {
-  gameModes: any[];
+  gameModes: Array<{
+    id: string;
+    name: string;
+    icon: React.ReactElement;
+    maps: string[];
+  }>;
   activeMode: string;
   setActiveMode: (mode: string) => void;
   selectedMap: string;
   setSelectedMap: (map: string) => void;
-  selectedTeamSize: string;
-  setSelectedTeamSize: (size: string) => void;
-  activeGameMode: any;
-  availableTeamSizes: any[];
-  teamSizes: any[];
-  selectedBetAmount: number;
-  setSelectedBetAmount: (amount: number) => void;
-  customBetAmount: string;
-  setCustomBetAmount: (amount: string) => void;
-  betAmounts: number[];
-  walletBalance: number;
-  isCreatingMatch: boolean;
-  handleCreateMatch: () => void;
-  currentUser: any;
+  title: string;
+  setTitle: (title: string) => void;
+  description: string;
+  setDescription: (description: string) => void;
+  lobbyCode: string;
+  setLobbyCode: (code: string) => void;
+  hostNotes: string;
+  setHostNotes: (notes: string) => void;
+  entryFee: string;
+  setEntryFee: (fee: string) => void;
+  maxPlayers: string;
+  setMaxPlayers: (players: string) => void;
+  scheduledTime: string;
+  setScheduledTime: (time: string) => void;
+  teamSize: string;
+  setTeamSize: (size: string) => void;
+  isVIPMatch: boolean;
+  setIsVIPMatch: (vip: boolean) => void;
+  onCreateMatch: () => void;
+  isLoading: boolean;
 }
 
-const CreateMatchTab: React.FC<CreateMatchTabProps> = ({
+const CreateMatchTab = ({
   gameModes,
   activeMode,
   setActiveMode,
   selectedMap,
   setSelectedMap,
-  selectedTeamSize,
-  setSelectedTeamSize,
-  activeGameMode,
-  availableTeamSizes,
-  teamSizes,
-  selectedBetAmount,
-  setSelectedBetAmount,
-  customBetAmount,
-  setCustomBetAmount,
-  betAmounts,
-  walletBalance,
-  isCreatingMatch,
-  handleCreateMatch,
-  currentUser
-}) => {
+  title,
+  setTitle,
+  description,
+  setDescription,
+  lobbyCode,
+  setLobbyCode,
+  hostNotes,
+  setHostNotes,
+  entryFee,
+  setEntryFee,
+  maxPlayers,
+  setMaxPlayers,
+  scheduledTime,
+  setScheduledTime,
+  teamSize,
+  setTeamSize,
+  isVIPMatch,
+  setIsVIPMatch,
+  onCreateMatch,
+  isLoading
+}: CreateMatchTabProps) => {
   const { toast } = useToast();
-  const [lobbyCode, setLobbyCode] = useState("");
-  const [hostNotes, setHostNotes] = useState("");
-  const [isVIPMatch, setIsVIPMatch] = useState(false);
 
-  const copyLobbyCode = () => {
-    navigator.clipboard.writeText(lobbyCode);
-    toast({
-      title: "Copied!",
-      description: "Lobby code copied to clipboard",
-    });
+  const currentMode = gameModes.find(mode => mode.id === activeMode);
+
+  const handleCreateMatch = () => {
+    if (!title.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a match title",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!activeMode) {
+      toast({
+        title: "Validation Error", 
+        description: "Please select a game mode",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedMap && currentMode?.maps.length) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a map",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const fee = parseFloat(entryFee);
+    if (isNaN(fee) || fee < 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid entry fee",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isVIPMatch && fee < 10000) {
+      toast({
+        title: "VIP Match Error",
+        description: "VIP matches require a minimum entry fee of ₦10,000",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    onCreateMatch();
   };
 
-  // Calculate platform fee (10% of entry fee)
-  const platformFee = selectedBetAmount * 0.10;
-  const prizePool = selectedBetAmount * 2 - platformFee;
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card className="glass-card">
+    <div className="space-y-6">
+      <Card>
         <CardHeader>
-          <CardTitle>Create a Match</CardTitle>
-          <CardDescription>Set up a custom game and wait for players to join</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5" />
+            Create New Match
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Game Mode</label>
-            <div className="grid grid-cols-3 gap-2">
-              {gameModes.slice(0, 6).map(mode => (
-                <MatchTypeCard
-                  key={mode.id}
-                  title={mode.name}
-                  icon={mode.icon}
-                  isActive={activeMode === mode.id}
-                  onClick={() => {
-                    setActiveMode(mode.id);
-                    setSelectedMap("");
-                    
-                    // Check if current team size is valid for new mode
-                    const teamSize = teamSizes.find(size => size.id === selectedTeamSize);
-                    if (!teamSize?.modes.includes(mode.id)) {
-                      setSelectedTeamSize(availableTeamSizes[0]?.id || "1v1");
-                    }
-                  }}
-                />
-              ))}
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">VIP Match</Label>
+              <p className="text-xs text-gray-400">Higher stakes, exclusive features</p>
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Map</label>
-            <Select value={selectedMap} onValueChange={setSelectedMap}>
-              <SelectTrigger className="bg-tacktix-dark-light text-white">
-                <SelectValue placeholder="Select a map" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeGameMode?.maps.map(map => (
-                  <SelectItem key={map} value={map}>{map}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Team Size</label>
-            <div className="grid grid-cols-3 gap-2">
-              {availableTeamSizes.map(size => (
-                <Button
-                  key={size.id}
-                  type="button"
-                  variant={selectedTeamSize === size.id ? "gradient" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedTeamSize(size.id)}
-                  className="bg-tacktix-dark-light border-white/10"
-                >
-                  {size.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Bet Amount (₦)</label>
-            <div className="grid grid-cols-3 gap-2">
-              {betAmounts.map(amount => (
-                <Button
-                  key={amount}
-                  type="button"
-                  variant={selectedBetAmount === amount && !customBetAmount ? "gradient" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setSelectedBetAmount(amount);
-                    setCustomBetAmount("");
-                  }}
-                  className="bg-tacktix-dark-light border-white/10"
-                >
-                  ₦{amount.toLocaleString()}
-                </Button>
-              ))}
-              
-              <div className="col-span-3">
-                <Input
-                  type="number"
-                  placeholder="Custom amount (min ₦1,000)"
-                  className="bg-tacktix-dark-light text-white"
-                  value={customBetAmount}
-                  onChange={(e) => {
-                    setCustomBetAmount(e.target.value);
-                    if (parseInt(e.target.value) >= 1000) {
-                      setSelectedBetAmount(parseInt(e.target.value));
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Lobby Code</label>
-            <div className="flex gap-2">
-              <Input
-                value={lobbyCode}
-                onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
-                placeholder="Enter your lobby code"
-                className="bg-tacktix-dark-light text-white"
-                maxLength={8}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="vip-match"
+                checked={isVIPMatch}
+                onCheckedChange={setIsVIPMatch}
               />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={copyLobbyCode}
-                className="bg-tacktix-dark-light border-white/10"
-                disabled={!lobbyCode}
-              >
-                <Copy size={16} />
-              </Button>
+              {isVIPMatch && (
+                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">
+                  <Crown className="h-3 w-3 mr-1" />
+                  VIP
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-gray-400">
-              Enter a custom lobby code that opponents will use to join your match.
-            </p>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Host Notes (Optional)</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="title">Match Title *</Label>
+              <Input
+                id="title"
+                placeholder="Enter match title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="entry-fee">Entry Fee (₦) *</Label>
+              <Input
+                id="entry-fee"
+                type="number"
+                placeholder={isVIPMatch ? "10000" : "0"}
+                min={isVIPMatch ? "10000" : "0"}
+                value={entryFee}
+                onChange={(e) => setEntryFee(e.target.value)}
+                disabled={isLoading}
+              />
+              {isVIPMatch && (
+                <p className="text-xs text-yellow-500 mt-1">Minimum ₦10,000 for VIP matches</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description</Label>
             <Textarea
-              value={hostNotes}
-              onChange={(e) => setHostNotes(e.target.value)}
-              placeholder="Add any additional information for your opponent..."
-              className="bg-tacktix-dark-light text-white"
+              id="description"
+              placeholder="Describe your match rules and requirements..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={isLoading}
               rows={3}
             />
-            <p className="text-xs text-gray-400">
-              Share game rules, requirements, or any other details with your opponent.
-            </p>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="vip-match"
-              checked={isVIPMatch}
-              onCheckedChange={setIsVIPMatch}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="lobby-code">Lobby Code</Label>
+              <Input
+                id="lobby-code"
+                placeholder="Enter lobby/room code..."
+                value={lobbyCode}
+                onChange={(e) => setLobbyCode(e.target.value)}
+                disabled={isLoading}
+              />
+              <p className="text-xs text-gray-400 mt-1">Code for players to join your game lobby</p>
+            </div>
+
+            <div>
+              <Label htmlFor="max-players">Max Players</Label>
+              <Select value={maxPlayers} onValueChange={setMaxPlayers} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select max players" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 Players</SelectItem>
+                  <SelectItem value="4">4 Players</SelectItem>
+                  <SelectItem value="6">6 Players</SelectItem>
+                  <SelectItem value="8">8 Players</SelectItem>
+                  <SelectItem value="10">10 Players</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="host-notes">Host Notes</Label>
+            <Textarea
+              id="host-notes"
+              placeholder="Additional notes for opponents (rules, requirements, etc.)..."
+              value={hostNotes}
+              onChange={(e) => setHostNotes(e.target.value)}
+              disabled={isLoading}
+              rows={2}
             />
-            <Label htmlFor="vip-match" className="flex items-center">
-              <Crown className="h-4 w-4 mr-1 text-yellow-500" />
-              VIP Match (High Stakes)
-            </Label>
+            <p className="text-xs text-gray-400 mt-1">Share any special rules or clarifications with opponents</p>
           </div>
 
-          <div className="space-y-2 p-3 bg-tacktix-dark-light/50 rounded-lg">
-            <div className="flex justify-between text-sm">
-              <span>Entry Fee:</span>
-              <span>₦{selectedBetAmount.toLocaleString()}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="team-size">Team Size</Label>
+              <Select value={teamSize} onValueChange={setTeamSize} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1v1">1v1</SelectItem>
+                  <SelectItem value="2v2">2v2</SelectItem>
+                  <SelectItem value="3v3">3v3</SelectItem>
+                  <SelectItem value="4v4">4v4</SelectItem>
+                  <SelectItem value="5v5">5v5</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex justify-between text-sm">
-              <span>Platform Fee (10%):</span>
-              <span>₦{platformFee.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm font-medium">
-              <span>Prize Pool:</span>
-              <span className="text-green-500">₦{prizePool.toLocaleString()}</span>
+
+            <div>
+              <Label htmlFor="scheduled-time">Scheduled Time (Optional)</Label>
+              <Input
+                id="scheduled-time"
+                type="datetime-local"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                disabled={isLoading}
+              />
             </div>
           </div>
-          
-          {currentUser && (
-            <div className="flex items-center justify-between mt-2 text-sm">
-              <span className="text-gray-400">Wallet Balance:</span>
-              <span className="text-tacktix-blue font-medium">₦{walletBalance.toLocaleString()}</span>
+
+          <div>
+            <Label>Game Mode *</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+              {gameModes.map((mode) => (
+                <Card
+                  key={mode.id}
+                  className={`cursor-pointer transition-all hover:scale-105 ${
+                    activeMode === mode.id
+                      ? "border-tacktix-blue bg-tacktix-blue/10"
+                      : "border-white/10 hover:border-white/20"
+                  }`}
+                  onClick={() => setActiveMode(mode.id)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <div className="flex justify-center mb-2">{mode.icon}</div>
+                    <h3 className="font-medium text-sm">{mode.name}</h3>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {currentMode?.maps.length > 0 && (
+            <div>
+              <Label>Map</Label>
+              <Select value={selectedMap} onValueChange={setSelectedMap} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a map" />
+                </SelectTrigger>
+                <SelectContent>
+                  {currentMode.maps.map((map) => (
+                    <SelectItem key={map} value={map}>
+                      {map}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
-        </CardContent>
-        <CardFooter>
-          <Button 
-            variant="gradient" 
-            className="w-full" 
-            onClick={handleCreateMatch}
-            disabled={isCreatingMatch || !selectedMap || !lobbyCode || selectedBetAmount < 1000 || !currentUser}
-          >
-            {isCreatingMatch ? (
-              <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                Creating Match...
-              </>
-            ) : (
-              <>
-                Create {isVIPMatch ? "VIP " : ""}Match
-                <ArrowRight size={16} className="ml-2" />
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-      
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Match Preview</CardTitle>
-          <CardDescription>How your match will appear to other players</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg overflow-hidden border border-white/10">
-            <div className="bg-gradient-to-r from-tacktix-dark-deeper to-tacktix-dark p-4 border-b border-white/10">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="bg-tacktix-blue/10 text-tacktix-blue">
-                    {activeGameMode?.name || "Select a mode"}
-                  </Badge>
-                  {isVIPMatch && (
-                    <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">
-                      <Crown className="h-3 w-3 mr-1" />
-                      VIP
-                    </Badge>
-                  )}
-                </div>
-                <div className="text-tacktix-blue font-bold">
-                  {selectedBetAmount ? `₦${selectedBetAmount.toLocaleString()}` : "₦0"}
-                </div>
-              </div>
-              <h3 className="font-medium text-white mt-2">{selectedMap || "Select a map"}</h3>
-              <div className="flex items-center text-gray-400 text-sm mt-1">
-                <Users size={14} className="mr-1" />
-                <span>{selectedTeamSize || "Select team size"}</span>
-              </div>
-            </div>
-            
-            <div className="p-4">
-              <div className="flex items-center mb-4">
-                <div className="h-10 w-10 bg-tacktix-dark-light rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                  {currentUser?.username?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "?"}
-                </div>
-                <div>
-                  <div className="font-medium text-white">{currentUser?.username || currentUser?.email || "Sign in to create"}</div>
-                  <div className="text-xs text-gray-400">Host</div>
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <div className="text-sm text-gray-400 mb-2">Lobby Code</div>
-                  <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-center font-mono font-medium text-lg">
-                    {lobbyCode || "Enter lobby code"}
-                  </div>
-                </div>
 
-                {hostNotes && (
-                  <div>
-                    <div className="text-sm text-gray-400 mb-2">Host Notes</div>
-                    <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">
-                      {hostNotes}
-                    </div>
-                  </div>
-                )}
-                
-                <div>
-                  <div className="text-sm text-gray-400 mb-2">Match Rules</div>
-                  <div className="bg-tacktix-dark-light/50 rounded-md p-3 text-sm">
-                    <p>• Standard {activeGameMode?.name || "game"} rules apply</p>
-                    <p>• First to reach the objective wins</p>
-                    <p>• Screenshots of results required</p>
-                    <p>• Platform fee: ₦{platformFee.toLocaleString()}</p>
-                    <p>• Winner takes: ₦{prizePool.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Button
+            onClick={handleCreateMatch}
+            disabled={isLoading}
+            className="w-full"
+            variant={isVIPMatch ? "gradient" : "default"}
+          >
+            {isLoading ? "Creating..." : `Create ${isVIPMatch ? "VIP " : ""}Match`}
+          </Button>
         </CardContent>
       </Card>
     </div>
