@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DisputeList from "@/components/moderator/DisputeList";
 import UserList from "@/components/moderator/UserList";
 import MatchList from "@/components/moderator/MatchList";
-import DepositVerification from "@/components/moderator/DepositVerification";
+import DepositVerification from "@/components/admin/DepositVerification";
 
 const ModeratorPanel = () => {
   const { toast } = useToast();
@@ -29,14 +30,14 @@ const ModeratorPanel = () => {
       });
       navigate("/sign-in");
     } else {
-      // Check if user has moderator role
+      // Check if user has moderator access using is_moderator field
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('role')
+        .select('is_moderator')
         .eq('id', session.user.id)
         .single();
 
-      if (error || profile?.role !== 'moderator') {
+      if (error || !profile?.is_moderator) {
         toast({
           title: "Unauthorized",
           description: "You do not have permission to access this page",
