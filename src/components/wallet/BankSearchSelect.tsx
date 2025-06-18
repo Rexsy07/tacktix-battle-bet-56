@@ -1,204 +1,542 @@
-import { useState, useMemo } from "react";
+
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Search, Check } from "lucide-react";
 
 interface Bank {
   code: string;
   name: string;
-  type: 'commercial' | 'microfinance' | 'mortgage' | 'merchant' | 'fintech' | 'psb';
+  type: "commercial" | "microfinance" | "mortgage" | "merchant" | "fintech" | "psb";
 }
-
-const banksList: Bank[] = [
-  // Commercial Banks
-  { code: "access_bank", name: "Access Bank", type: "commercial" },
-  { code: "citi_bank", name: "Citi Bank", type: "commercial" },
-  { code: "ecobank", name: "Ecobank Nigeria", type: "commercial" },
-  { code: "fcmb", name: "FCMB", type: "commercial" },
-  { code: "fidelity_bank", name: "Fidelity Bank", type: "commercial" },
-  { code: "first_bank", name: "First Bank of Nigeria", type: "commercial" },
-  { code: "gtbank", name: "GTBank Plc", type: "commercial" },
-  { code: "heritage_bank", name: "Heritage Bank", type: "commercial" },
-  { code: "jaiz_bank", name: "JAIZ Bank", type: "commercial" },
-  { code: "keystone_bank", name: "Keystone Bank", type: "commercial" },
-  { code: "polaris_bank", name: "Polaris Bank", type: "commercial" },
-  { code: "providus_bank", name: "Providus Bank", type: "commercial" },
-  { code: "stanbic_ibtc", name: "StanbicIBTC Bank", type: "commercial" },
-  { code: "standard_chartered", name: "StandardChartered", type: "commercial" },
-  { code: "sterling_bank", name: "Sterling Bank", type: "commercial" },
-  { code: "suntrust_bank", name: "Suntrust Bank", type: "commercial" },
-  { code: "uba", name: "United Bank for Africa", type: "commercial" },
-  { code: "union_bank", name: "Union Bank", type: "commercial" },
-  { code: "unity_bank", name: "Unity Bank", type: "commercial" },
-  { code: "wema_bank", name: "Wema Bank", type: "commercial" },
-  { code: "zenith_bank", name: "Zenith Bank Plc", type: "commercial" },
-  
-  // Merchant Banks
-  { code: "coronation_merchant", name: "Coronation Merchant Bank", type: "merchant" },
-  { code: "fbnquest_merchant", name: "FBNQUEST Merchant Bank", type: "merchant" },
-  { code: "fsdh_merchant", name: "FSDH Merchant Bank", type: "merchant" },
-  { code: "greenwich_merchant", name: "Greenwich Merchant Bank", type: "merchant" },
-  { code: "nova_merchant", name: "Nova Merchant Bank", type: "merchant" },
-  { code: "rand_merchant", name: "Rand Merchant Bank", type: "merchant" },
-  
-  // Mortgage Banks
-  { code: "abbey_mortgage", name: "Abbey Mortgage Bank", type: "mortgage" },
-  { code: "ag_mortgage", name: "AG Mortgage Bank", type: "mortgage" },
-  { code: "brent_mortgage", name: "Brent Mortgage Bank", type: "mortgage" },
-  { code: "coop_mortgage", name: "Coop Mortgage Bank", type: "mortgage" },
-  { code: "fbn_mortgages", name: "FBN Mortgages Limited", type: "mortgage" },
-  { code: "fha_mortgage", name: "FHA Mortgage Bank", type: "mortgage" },
-  { code: "first_generation_mortgage", name: "First Generation Mortgage Bank", type: "mortgage" },
-  { code: "gateway_mortgage", name: "Gateway Mortgage Bank", type: "mortgage" },
-  { code: "haggai_mortgage", name: "Haggai Mortgage Bank Limited", type: "mortgage" },
-  { code: "homebase_mortgage", name: "Homebase Mortgage Bank", type: "mortgage" },
-  { code: "imperial_homes_mortgage", name: "Imperial Homes Mortgage Bank", type: "mortgage" },
-  { code: "infinity_trust_mortgage", name: "Infinity Trust Mortgage Bank", type: "mortgage" },
-  { code: "jubilee_life_mortgage", name: "Jubilee-Life Mortgage Bank", type: "mortgage" },
-  { code: "lagos_building_investment", name: "Lagos Building Investment Company", type: "mortgage" },
-  { code: "mayfresh_mortgage", name: "MayFresh Mortgage Bank", type: "mortgage" },
-  { code: "platinum_mortgage", name: "Platinum Mortgage Bank", type: "mortgage" },
-  { code: "refuge_mortgage", name: "Refuge Mortgage Bank", type: "mortgage" },
-  { code: "stb_mortgage", name: "STB Mortgage Bank", type: "mortgage" },
-  { code: "trustbond_mortgage", name: "Trustbond Mortgage Bank", type: "mortgage" },
-  
-  // Microfinance Banks (Selection - too many to list all)
-  { code: "accion_mfb", name: "Accion Microfinance Bank", type: "microfinance" },
-  { code: "bowen_mfb", name: "Bowen Microfinance Bank", type: "microfinance" },
-  { code: "covenant_mfb", name: "Covenant MFB", type: "microfinance" },
-  { code: "fairmoney_mfb", name: "FairMoney Microfinance Bank", type: "microfinance" },
-  { code: "kuda_mfb", name: "Kuda Microfinance Bank", type: "microfinance" },
-  { code: "lapo_mfb", name: "Lapo Microfinance Bank", type: "microfinance" },
-  { code: "moniepoint_mfb", name: "Moniepoint Microfinance Bank", type: "microfinance" },
-  { code: "renmoney_mfb", name: "RenMoney Microfinance Bank", type: "microfinance" },
-  { code: "sparkle_mfb", name: "Sparkle", type: "microfinance" },
-  { code: "vfd_mfb", name: "VFD MFB", type: "microfinance" },
-  
-  // Fintech/Digital Banks
-  { code: "eyowo", name: "Eyowo", type: "fintech" },
-  { code: "opay", name: "Paycom (Opay)", type: "fintech" },
-  { code: "paga", name: "Paga", type: "fintech" },
-  { code: "palmpay", name: "PalmPay Limited", type: "fintech" },
-  { code: "flutterwave", name: "Flutterwave Technology Solutions Limited", type: "fintech" },
-  { code: "paystack", name: "Paystack Payment Limited", type: "fintech" },
-  
-  // Payment Service Banks
-  { code: "9psb", name: "9Payment Service Bank", type: "psb" },
-  { code: "hope_psb", name: "HopePSB", type: "psb" },
-  { code: "momo_psb", name: "MoMo PSB", type: "psb" },
-  { code: "smartcash_psb", name: "SmartCash PSB", type: "psb" },
-  
-  // Others
-  { code: "cbn", name: "Central Bank of Nigeria", type: "commercial" },
-  { code: "enaira", name: "eNaira", type: "fintech" },
-  { code: "enterprise_bank", name: "Enterprise Bank", type: "commercial" },
-  { code: "globus_bank", name: "Globus Bank", type: "commercial" },
-  { code: "lotus_bank", name: "Lotus Bank", type: "commercial" },
-  { code: "optimus_bank", name: "Optimus Bank", type: "commercial" },
-  { code: "premium_trust_bank", name: "Premium Trust Bank", type: "commercial" },
-  { code: "signature_bank", name: "Signature Bank", type: "commercial" },
-  { code: "taj_bank", name: "Taj Bank", type: "commercial" },
-  { code: "titan_trust_bank", name: "Titan Trust Bank", type: "commercial" }
-].sort((a, b) => a.name.localeCompare(b.name));
 
 interface BankSearchSelectProps {
-  value: string;
-  onValueChange: (value: string) => void;
-  disabled?: boolean;
+  value?: string;
+  onSelect: (bank: Bank) => void;
+  placeholder?: string;
 }
 
-const BankSearchSelect = ({ value, onValueChange, disabled }: BankSearchSelectProps) => {
+const BankSearchSelect: React.FC<BankSearchSelectProps> = ({ value, onSelect, placeholder = "Search for a bank..." }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
 
-  const filteredBanks = useMemo(() => {
-    if (!searchTerm) return banksList;
-    return banksList.filter(bank =>
-      bank.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm]);
+  const banks: Bank[] = [
+    { code: "000017", name: "AAA Finance", type: "fintech" },
+    { code: "090270", name: "AB Microfinance Bank", type: "microfinance" },
+    { code: "090260", name: "Above Only Microfinance Bank", type: "microfinance" },
+    { code: "090286", name: "Abulesoro Microfinance Bank", type: "microfinance" },
+    { code: "044", name: "Access Bank", type: "commercial" },
+    { code: "323", name: "AccessMobile", type: "fintech" },
+    { code: "098", name: "Access Yello", type: "fintech" },
+    { code: "090134", name: "Accion Microfinance Bank", type: "microfinance" },
+    { code: "090160", name: "Addosser Microfinance Bank", type: "microfinance" },
+    { code: "090268", name: "Adeyemi College Staff Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Advans La Fayette Microfinance Bank", type: "microfinance" },
+    { code: "090292", name: "Afekhafe Microfinance Bank", type: "microfinance" },
+    { code: "090292", name: "Afemai Microfinance Bank", type: "microfinance" },
+    { code: "090559", name: "AG Mortgage Bank", type: "mortgage" },
+    { code: "090143", name: "Akpo Microfinance Bank", type: "microfinance" },
+    { code: "090264", name: "Aku Microfinance Bank", type: "microfinance" },
+    { code: "090180", name: "Akuchuckwu Microfinance Bank", type: "microfinance" },
+    { code: "090191", name: "Akwa Savings & Loans Limited", type: "microfinance" },
+    { code: "090259", name: "Alekun Microfinance Bank", type: "microfinance" },
+    { code: "401", name: "Alert Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "AL-Barakah Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Al-Hayat Microfinance Bank", type: "microfinance" },
+    { code: "090124", name: "Allworkers Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Ally Microfinance Bank", type: "microfinance" },
+    { code: "090277", name: "Alvana Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Amac Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Amegy MFB", type: "microfinance" },
+    { code: "090133", name: "Amju Unique Microfinance Bank", type: "microfinance" },
+    { code: "090116", name: "AMML MFB", type: "microfinance" },
+    { code: "090259", name: "Amoye Microfinance Bank", type: "microfinance" },
+    { code: "090142", name: "Ampersand Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Anchorage Microfinance Bank", type: "microfinance" },
+    { code: "090124", name: "Aniocha Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Apple Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Apeks Microfinance Bank", type: "microfinance" },
+    { code: "090298", name: "Aramoko Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Arise Microfinance Bank", type: "microfinance" },
+    { code: "070006", name: "ASO Savings & Loans", type: "microfinance" },
+    { code: "090308", name: "AssetMatrix Microfinance Bank", type: "microfinance" },
+    { code: "090292", name: "Assets Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Astrapolaris Microfinance Bank", type: "microfinance" },
+    { code: "090264", name: "Aztec Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Auchi Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Ave Maria Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Awacash MFB", type: "microfinance" },
+    { code: "090177", name: "Bahra Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Baines Credit Microfinance Bank", type: "microfinance" },
+    { code: "090180", name: "Balera Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Balogun Fulani Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Balogun Gambari Microfinance Bank", type: "microfinance" },
+    { code: "090273", name: "Banc Corp MFB", type: "microfinance" },
+    { code: "090321", name: "Babura MFB", type: "microfinance" },
+    { code: "090177", name: "BC Kash Microfinance Bank", type: "microfinance" },
+    { code: "090326", name: "Berachah MFB", type: "microfinance" },
+    { code: "090325", name: "Beststar MFB", type: "microfinance" },
+    { code: "090133", name: "BIPC Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "BishopGate Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "BluePrint Investments Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Boctrust Microfinance Bank", type: "microfinance" },
+    { code: "090277", name: "Boji MFB", type: "microfinance" },
+    { code: "090133", name: "BOI Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Borgu Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Bosak Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Bowen Microfinance Bank", type: "microfinance" },
+    { code: "000027", name: "Branch International Financial Services", type: "fintech" },
+    { code: "090134", name: "Brethren Microfinance Bank", type: "microfinance" },
+    { code: "090251", name: "Bridgeway Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "Brightway Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Broadview Microfinance Bank", type: "microfinance" },
+    { code: "090322", name: "Briyth-Covenant MFB", type: "microfinance" },
+    { code: "090134", name: "Bunkure MFB", type: "microfinance" },
+    { code: "090134", name: "Business Support Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Canaan MFB", type: "microfinance" },
+    { code: "090259", name: "Caretaker Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Cashbridge MFB", type: "microfinance" },
+    { code: "090270", name: "CashConnect Microfinance Bank", type: "microfinance" },
+    { code: "090327", name: "Cashrite MFB", type: "microfinance" },
+    { code: "090134", name: "Catland MFB", type: "microfinance" },
+    { code: "090295", name: "Cedar Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "CEMCS Microfinance Bank", type: "microfinance" },
+    { code: "001", name: "Central Bank of Nigeria", type: "commercial" },
+    { code: "090134", name: "Changan RTS Microfinance Bank", type: "microfinance" },
+    { code: "090138", name: "Chase Microfinance Bank", type: "microfinance" },
+    { code: "090298", name: "Chikum Microfinance Bank", type: "microfinance" },
+    { code: "090277", name: "Chukwunenye MFB", type: "microfinance" },
+    { code: "090259", name: "Cintrust Microfinance Bank", type: "microfinance" },
+    { code: "027", name: "Citi Bank", type: "commercial" },
+    { code: "090133", name: "CIT Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Coalcamp Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Coastline Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Confidence MFB", type: "microfinance" },
+    { code: "090259", name: "Conpro Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Consistent Trust Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Consumer Microfinance Bank", type: "microfinance" },
+    { code: "060001", name: "Coronation Merchant Bank", type: "merchant" },
+    { code: "090259", name: "Corestep Microfinance Bank", type: "microfinance" },
+    { code: "090179", name: "Coop Mortgage Bank", type: "mortgage" },
+    { code: "090133", name: "Covenant MFB", type: "microfinance" },
+    { code: "090134", name: "Credit Afrique Microfinance Bank", type: "microfinance" },
+    { code: "090322", name: "Creditville MFB", type: "microfinance" },
+    { code: "090259", name: "Crescent Microfinance Bank", type: "microfinance" },
+    { code: "000009", name: "CS Advance", type: "fintech" },
+    { code: "090134", name: "Crowdforce", type: "microfinance" },
+    { code: "050", name: "Ecobank Bank", type: "commercial" },
+    { code: "311", name: "EcoMobile", type: "fintech" },
+    { code: "100", name: "Ecobank Xpress Account", type: "fintech" },
+    { code: "090134", name: "DAL MFB", type: "microfinance" },
+    { code: "090259", name: "Davodani Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Daylight Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Delta Trust Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Dignity Finance", type: "microfinance" },
+    { code: "090320", name: "Diobu MFB", type: "microfinance" },
+    { code: "090134", name: "e-Barcs Microfinance Bank", type: "microfinance" },
+    { code: "000010", name: "E-Finance", type: "fintech" },
+    { code: "090134", name: "Eagle Flight Microfinance Bank", type: "microfinance" },
+    { code: "322", name: "Eartholeum", type: "fintech" },
+    { code: "090299", name: "EdFin Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Egwafin Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "EK-Reliable Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Ekondo MFB", type: "microfinance" },
+    { code: "090270", name: "Emeralds Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Empire Trust MFB", type: "microfinance" },
+    { code: "090000", name: "eNaira", type: "fintech" },
+    { code: "090000", name: "Enco Finance", type: "fintech" },
+    { code: "090259", name: "Enrich Microfinance Bank", type: "microfinance" },
+    { code: "000019", name: "Enterprise Bank", type: "commercial" },
+    { code: "090298", name: "Evangel Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Evergreen Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Excellent Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Eyowo", type: "fintech" },
+    { code: "090299", name: "EWT Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Esan Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Eso-E Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "FairMoney Microfinance Bank", type: "microfinance" },
+    { code: "000018", name: "Fast Credit", type: "fintech" },
+    { code: "090133", name: "FAST Microfinance Bank", type: "microfinance" },
+    { code: "317", name: "FBNMobile", type: "fintech" },
+    { code: "060002", name: "FBNQUEST Merchant Bank", type: "merchant" },
+    { code: "214", name: "FBN Mortgages Limited", type: "mortgage" },
+    { code: "214", name: "FCMB", type: "commercial" },
+    { code: "090290", name: "FCMB BETA", type: "fintech" },
+    { code: "329", name: "FCMB Easy Account", type: "fintech" },
+    { code: "090134", name: "FCT Microfinance Bank", type: "microfinance" },
+    { code: "070", name: "Fidelity Bank", type: "commercial" },
+    { code: "318", name: "Fidelity Mobile", type: "fintech" },
+    { code: "090259", name: "Fedeth Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Federal Polytechnic Nekede Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Federal University Dutse Microfinance Bank", type: "microfinance" },
+    { code: "401", name: "FedPoly Nasarawa Microfinance Bank", type: "microfinance" },
+    { code: "328", name: "FET", type: "fintech" },
+    { code: "000021", name: "FEWCHORE FINANCE COMPANY LIMITED", type: "fintech" },
+    { code: "090177", name: "Fidfund Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "FinaTrust Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "FIMS MFB", type: "microfinance" },
+    { code: "090259", name: "Firmus Microfinance Bank", type: "microfinance" },
+    { code: "011", name: "First Bank of Nigeria", type: "commercial" },
+    { code: "090164", name: "First Generation Mortgage Bank", type: "mortgage" },
+    { code: "090259", name: "First Midas Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "First Option Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "First Royal Microfinance Bank", type: "microfinance" },
+    { code: "324", name: "FlutterWave", type: "fintech" },
+    { code: "325", name: "Flourish MFB", type: "microfinance" },
+    { code: "090134", name: "Fortis Microfinance Bank", type: "microfinance" },
+    { code: "501", name: "FortisMobile", type: "fintech" },
+    { code: "060003", name: "FSDH Merchant Bank", type: "merchant" },
+    { code: "090133", name: "Fullrange Microfinance Bank", type: "microfinance" },
+    { code: "000020", name: "Fundquest Financial Services Limited", type: "fintech" },
+    { code: "090259", name: "Futo Microfinance Bank", type: "microfinance" },
+    { code: "090273", name: "Gabasawa MFB", type: "microfinance" },
+    { code: "090291", name: "Gabsyn Microfinance Bank Limited", type: "microfinance" },
+    { code: "090134", name: "Gashua Microfinance Bank", type: "microfinance" },
+    { code: "050002", name: "Gateway Mortgage Bank", type: "mortgage" },
+    { code: "090259", name: "Gbede Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Giant Stride Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Gidauniyar Alheri MFB", type: "microfinance" },
+    { code: "090133", name: "Giginya Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Girei Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Glory Microfinance Bank", type: "microfinance" },
+    { code: "090308", name: "Globus Bank", type: "commercial" },
+    { code: "090134", name: "GMB Microfinance Bank", type: "microfinance" },
+    { code: "090277", name: "Goodnews Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Good Neighbours Microfinance Bank", type: "microfinance" },
+    { code: "321", name: "GoMoney", type: "fintech" },
+    { code: "090320", name: "Gombe MFB", type: "microfinance" },
+    { code: "090134", name: "Gowans Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "GOLDMAN MFB", type: "microfinance" },
+    { code: "090134", name: "GreenBank Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Green Energy Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Greenville Microfinance Bank", type: "microfinance" },
+    { code: "060004", name: "Greenwich Merchant Bank", type: "merchant" },
+    { code: "090134", name: "Grooming Microfinance Bank", type: "microfinance" },
+    { code: "058", name: "GTBank Plc", type: "commercial" },
+    { code: "315", name: "GTMobile", type: "fintech" },
+    { code: "090259", name: "GTI Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Hackman Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Haggai Mortgage Bank Limited", type: "mortgage" },
+    { code: "090259", name: "Halal Credit Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Hasal Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Headway Microfinance Bank", type: "microfinance" },
+    { code: "502", name: "Hedonmark", type: "fintech" },
+    { code: "000030", name: "Heritage Bank", type: "commercial" },
+    { code: "090134", name: "HighStreet Microfinance Bank", type: "microfinance" },
+    { code: "090164", name: "Homebase Mortgage Bank", type: "mortgage" },
+    { code: "090322", name: "HopePSB", type: "psb" },
+    { code: "090259", name: "IBA Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Iboma Fadama Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "IBOLO Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Ibu-Aje Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "IBILE Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Ijebu-Ife Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Ikenne Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Ikire Microfinance Bank", type: "microfinance" },
+    { code: "090264", name: "Ikoyi-Osun Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "Ilaro Poly Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Ilisan Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Imo State Microfinance Bank", type: "microfinance" },
+    { code: "090215", name: "Imperial Homes Mortgage Bank", type: "mortgage" },
+    { code: "090133", name: "Infinity Microfinance Bank", type: "microfinance" },
+    { code: "090179", name: "Infinity Trust Mortgage Bank", type: "mortgage" },
+    { code: "090259", name: "Intellifin", type: "fintech" },
+    { code: "090259", name: "Interland Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "IRL Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Isaleoyo Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Island Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Iwoama Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "Iwade MFB Ltd", type: "microfinance" },
+    { code: "090270", name: "Iyamoye Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Iyeru Okin Microfinance Bank", type: "microfinance" },
+    { code: "090326", name: "Iyin Ekiti MFB", type: "microfinance" },
+    { code: "301", name: "JAIZ Bank", type: "commercial" },
+    { code: "090270", name: "Jessefield Microfinance Bank", type: "microfinance" },
+    { code: "090179", name: "Jubilee-Life Mortgage Bank", type: "mortgage" },
+    { code: "090134", name: "KCMB Microfinance Bank", type: "microfinance" },
+    { code: "082", name: "Keystone Bank", type: "commercial" },
+    { code: "090259", name: "KC Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "KadPoly Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Kayvee Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "KKU MFB", type: "microfinance" },
+    { code: "090259", name: "Kenechukwu Microfinance Bank", type: "microfinance" },
+    { code: "303", name: "Kegow (Chamsmobile)", type: "fintech" },
+    { code: "090320", name: "Kopo Kope MFB", type: "microfinance" },
+    { code: "090298", name: "Kontagora Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Kuda Microfinance Bank", type: "microfinance" },
+    { code: "090177", name: "Lapo Microfinance Bank", type: "microfinance" },
+    { code: "090177", name: "Lagos Building Investment Company", type: "mortgage" },
+    { code: "090270", name: "Lavender Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Leadcity MFB", type: "microfinance" },
+    { code: "090259", name: "Legend Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Lifegate Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Light MFB", type: "microfinance" },
+    { code: "090259", name: "Lobrem Microfinance Bank", type: "microfinance" },
+    { code: "070014", name: "Lotus Bank", type: "commercial" },
+    { code: "090270", name: "Lovonus Microfinance Bank", type: "microfinance" },
+    { code: "090000", name: "Lukefield Finance Company Limited", type: "fintech" },
+    { code: "070019", name: "Mayfair Bank", type: "commercial" },
+    { code: "090179", name: "MayFresh Mortgage Bank", type: "mortgage" },
+    { code: "090134", name: "MayFair Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Mabinas MFB", type: "microfinance" },
+    { code: "090322", name: "MAB Allianz MFB", type: "microfinance" },
+    { code: "090326", name: "Macrod MFB", type: "microfinance" },
+    { code: "090273", name: "Madobi MFB", type: "microfinance" },
+    { code: "090259", name: "Mainland Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Mainstreet Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Maintrust Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Malachy Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Maritime Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Medef Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Megapraise Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "Mercury MFB", type: "microfinance" },
+    { code: "090259", name: "Mgbidi Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "MICHAEL OKPARA UNIAGRIC MICROFINANCE BANK", type: "microfinance" },
+    { code: "090133", name: "Microcred Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "Microbiz MFB", type: "microfinance" },
+    { code: "090134", name: "Midland Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "MINJIBIR MFB", type: "microfinance" },
+    { code: "090259", name: "MintFinex Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Mkobo Microfinance Bank", type: "microfinance" },
+    { code: "090316", name: "Mkudi", type: "fintech" },
+    { code: "090270", name: "Molusi Microfinance Bank", type: "microfinance" },
+    { code: "090322", name: "MoMo PSB", type: "psb" },
+    { code: "090259", name: "Moniepoint Microfinance Bank", type: "microfinance" },
+    { code: "319", name: "MoneyBox", type: "fintech" },
+    { code: "090177", name: "Money Trust Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Moyofade Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Mutual Benefits Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Mutual Trust Microfinance Bank", type: "microfinance" },
+    { code: "070013", name: "Nassarawa Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Nagarta Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Navy Microfinance Bank", type: "microfinance" },
+    { code: "090177", name: "Ndiorah Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Neptune Microfinance Bank", type: "fintech" },
+    { code: "090134", name: "New Dawn Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "New Golden Pastures Microfinance Bank", type: "microfinance" },
+    { code: "090105", name: "New Prudential Bank", type: "microfinance" },
+    { code: "000011", name: "NEXIM Bank", type: "commercial" },
+    { code: "090278", name: "Nigerian Prisons Microfinance Bank", type: "microfinance" },
+    { code: "060008", name: "9Payment Service Bank", type: "psb" },
+    { code: "090205", name: "NIRSAL Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Nkpolu-Ust MFB", type: "microfinance" },
+    { code: "090259", name: "Nnew Women Microfinance Bank", type: "microfinance" },
+    { code: "060005", name: "Nova Merchant Bank", type: "merchant" },
+    { code: "090205", name: "NPF MicroFinance Bank", type: "microfinance" },
+    { code: "090277", name: "Nsehe MFB", type: "microfinance" },
+    { code: "090277", name: "Nsuk MFB", type: "microfinance" },
+    { code: "090270", name: "Nuture Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Nwannegadi Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "OAU Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Oche Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Octopus Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Odoakpu MFB", type: "microfinance" },
+    { code: "090133", name: "Ohafia Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Ohha MFB", type: "microfinance" },
+    { code: "090134", name: "Ojokoro Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Oke-Aro Oredegbe Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Okengwe MFB", type: "microfinance" },
+    { code: "090259", name: "Okuku Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Okpoga Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Olabisi Onabanjo University Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Oluchukwu Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Olowolagba Microfinance Bank", type: "microfinance" },
+    { code: "090292", name: "OLOFIN OWENA Microfinance Bank", type: "microfinance" },
+    { code: "070009", name: "Omoluabi Savings and Loans", type: "microfinance" },
+    { code: "090134", name: "Omiye Microfinance Bank", type: "microfinance" },
+    { code: "090000", name: "One Finance", type: "fintech" },
+    { code: "327", name: "Opay", type: "fintech" },
+    { code: "090000", name: "Optimus Bank", type: "commercial" },
+    { code: "090277", name: "Oraukwu MFB", type: "microfinance" },
+    { code: "090259", name: "Orokam Microfinance Bank", type: "microfinance" },
+    { code: "090299", name: "Orisun MFB", type: "microfinance" },
+    { code: "090134", name: "Oscotech Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Otech Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Otuo Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Oyan MFB", type: "microfinance" },
+    { code: "090177", name: "Page Financials", type: "microfinance" },
+    { code: "329", name: "Paga", type: "fintech" },
+    { code: "090000", name: "PalmPay Limited", type: "fintech" },
+    { code: "000011", name: "Parallex Bank", type: "commercial" },
+    { code: "090134", name: "Parralex Microfinance Bank", type: "microfinance" },
+    { code: "329", name: "Parkway-ReadyCash", type: "fintech" },
+    { code: "090299", name: "PatrickGold Microfinance Bank", type: "microfinance" },
+    { code: "327", name: "Paycom (Opay)", type: "fintech" },
+    { code: "090133", name: "PecanTrust Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Pennywise Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Personal Trust Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Petra Microfinance Bank", type: "microfinance" },
+    { code: "090308", name: "Pillar Microfinance Bank", type: "microfinance" },
+    { code: "090164", name: "Platinum Mortgage Bank", type: "mortgage" },
+    { code: "076", name: "Polaris Bank", type: "commercial" },
+    { code: "090264", name: "Polybadan Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Polyunwana Microfinance Bank", type: "microfinance" },
+    { code: "070013", name: "Premium Trust Bank", type: "commercial" },
+    { code: "090133", name: "Preeminent Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Prestige Microfinance Bank", type: "microfinance" },
+    { code: "090278", name: "Pristine Divitis Microfinance Bank", type: "microfinance" },
+    { code: "090278", name: "Projects Microfinance Bank", type: "microfinance" },
+    { code: "000032", name: "Prophius", type: "fintech" },
+    { code: "090320", name: "Prosperity MFB", type: "microfinance" },
+    { code: "000032", name: "Providus Bank", type: "commercial" },
+    { code: "090298", name: "Purplemoney Microfinance Bank", type: "microfinance" },
+    { code: "090322", name: "Pyramid MFB", type: "microfinance" },
+    { code: "090259", name: "Qube Microfinance Bank", type: "microfinance" },
+    { code: "090264", name: "Quickfund Microfinance Bank", type: "microfinance" },
+    { code: "000027", name: "Rand Merchant Bank", type: "commercial" },
+    { code: "090278", name: "Randalpha Microfinance Bank", type: "microfinance" },
+    { code: "090326", name: "Rayyan MFB", type: "microfinance" },
+    { code: "090134", name: "Regent Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Rehoboth Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Reliance Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "RenMoney Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Rephidim Microfinance Bank", type: "microfinance" },
+    { code: "090124", name: "Richway Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Rigo Microfinance Bank", type: "microfinance" },
+    { code: "090279", name: "RIMA Growth Pathway Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Rockshield Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Royal Exchange Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Royal Blue MFB", type: "microfinance" },
+    { code: "070010", name: "SafeTrust", type: "mortgage" },
+    { code: "090308", name: "Safe Haven Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Sagamu Microfinance Bank", type: "microfinance" },
+    { code: "000022", name: "SageGrey Finance Limited", type: "fintech" },
+    { code: "090133", name: "Seed Capital Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Seedvest Microfinance Bank", type: "microfinance" },
+    { code: "090279", name: "SEAP Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Shepherd Trust Microfinance Bank", type: "microfinance" },
+    { code: "090278", name: "Shalom Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Shield Microfinance Bank", type: "microfinance" },
+    { code: "090259", name: "Shongom Microfinance Bank", type: "microfinance" },
+    { code: "000023", name: "Signature Bank", type: "commercial" },
+    { code: "000024", name: "Simple Finance Limited", type: "fintech" },
+    { code: "090322", name: "SmartCash PSB", type: "psb" },
+    { code: "090299", name: "Snow MFB", type: "microfinance" },
+    { code: "090138", name: "Solidrock Microfinance Bank", type: "microfinance" },
+    { code: "090278", name: "Solid Allianze MFB", type: "microfinance" },
+    { code: "090320", name: "Source MFB", type: "microfinance" },
+    { code: "090270", name: "Sparkle", type: "fintech" },
+    { code: "090134", name: "Stanford Microfinance Bank", type: "microfinance" },
+    { code: "232", name: "Stanbic IBTC @ease wallet", type: "fintech" },
+    { code: "221", name: "StanbicIBTC Bank", type: "commercial" },
+    { code: "000068", name: "StandardChartered", type: "commercial" },
+    { code: "090259", name: "Stateside Microfinance Bank", type: "microfinance" },
+    { code: "090264", name: "Stellas Microfinance Bank", type: "microfinance" },
+    { code: "232", name: "Sterling Bank", type: "commercial" },
+    { code: "090179", name: "STB Mortgage Bank", type: "mortgage" },
+    { code: "090298", name: "Sulspap Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Suntop MFB", type: "microfinance" },
+    { code: "000070", name: "Suntrust Bank", type: "commercial" },
+    { code: "090259", name: "Supreme Microfinance Bank", type: "microfinance" },
+    { code: "000025", name: "Taj Bank", type: "commercial" },
+    { code: "090320", name: "Tangale MFB", type: "microfinance" },
+    { code: "090259", name: "Tanadi Microfinance Bank", type: "microfinance" },
+    { code: "090291", name: "Tasued Microfinance Bank", type: "microfinance" },
+    { code: "000026", name: "Tekla Finance Limited", type: "fintech" },
+    { code: "090134", name: "TCF MFB", type: "microfinance" },
+    { code: "316", name: "TeasyMobile", type: "fintech" },
+    { code: "090259", name: "Think Finance Microfinance Bank", type: "microfinance" },
+    { code: "000028", name: "Titan Trust Bank", type: "commercial" },
+    { code: "000029", name: "Trinity Financial Services Limited", type: "fintech" },
+    { code: "090138", name: "TripleA Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Trident Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Trust Microfinance Bank", type: "microfinance" },
+    { code: "090179", name: "Trustbond Mortgage Bank", type: "mortgage" },
+    { code: "090270", name: "Trustfund Microfinance Bank", type: "microfinance" },
+    { code: "090325", name: "Total Trust MFB", type: "microfinance" },
+    { code: "090134", name: "UDA Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "Uhuru Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Umuchukwu MFB", type: "microfinance" },
+    { code: "090270", name: "Ummah Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "UNAAB Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Unical Microfinance Bank", type: "microfinance" },
+    { code: "090320", name: "Unifund MFB", type: "microfinance" },
+    { code: "090270", name: "Uniben Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Unimaid Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "UNN MFB", type: "microfinance" },
+    { code: "090270", name: "UniUyo Microfinance Bank", type: "microfinance" },
+    { code: "032", name: "Union Bank", type: "commercial" },
+    { code: "023", name: "United Bank for Africa", type: "commercial" },
+    { code: "215", name: "Unity Bank", type: "commercial" },
+    { code: "090299", name: "U & C Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Verite Microfinance Bank", type: "microfinance" },
+    { code: "090264", name: "Verdant Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "VFD MFB", type: "microfinance" },
+    { code: "090133", name: "Virtue Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Visa Microfinance Bank", type: "microfinance" },
+    { code: "320", name: "VTNetworks", type: "fintech" },
+    { code: "090291", name: "Waya Microfinance Bank", type: "microfinance" },
+    { code: "035", name: "Wema Bank", type: "commercial" },
+    { code: "090134", name: "Wetland Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Xslnce Microfinance Bank", type: "microfinance" },
+    { code: "090270", name: "YCT Microfinance Bank", type: "microfinance" },
+    { code: "090133", name: "Yes Microfinance Bank", type: "microfinance" },
+    { code: "090134", name: "Yobe Microfinance Bank", type: "microfinance" },
+    { code: "057", name: "Zenith Bank Plc", type: "commercial" },
+    { code: "100018", name: "Zenith Eazy Wallet", type: "fintech" },
+    { code: "966", name: "ZenithMobile", type: "fintech" },
+    { code: "090278", name: "Zikora Microfinance Bank", type: "microfinance" },
+  ];
 
-  const selectedBank = banksList.find(bank => bank.code === value);
+  const filteredBanks = banks.filter(bank =>
+    bank.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    bank.code.includes(searchTerm)
+  );
 
-  const handleBankSelect = (bankCode: string) => {
-    onValueChange(bankCode);
+  const handleBankSelect = (bank: Bank) => {
+    setSelectedBank(bank);
+    onSelect(bank);
     setIsOpen(false);
     setSearchTerm("");
   };
 
   return (
     <div className="relative">
-      <Label htmlFor="bank-select">Bank Name</Label>
       <Button
-        id="bank-select"
-        variant="outline"
-        className={cn(
-          "w-full justify-between h-10 px-3 py-2",
-          !selectedBank && "text-muted-foreground"
-        )}
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={disabled}
         type="button"
+        variant="outline"
+        className="w-full justify-between bg-tacktix-dark-light text-white border-white/10"
+        onClick={() => setIsOpen(!isOpen)}
       >
-        {selectedBank ? selectedBank.name : "Select your bank"}
-        <ChevronDown className="h-4 w-4 opacity-50" />
+        {selectedBank ? selectedBank.name : "Select a bank"}
       </Button>
 
       {isOpen && (
-        <Card className="absolute top-full mt-1 w-full z-50 shadow-lg">
-          <CardContent className="p-2">
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-              <Input
-                placeholder="Search banks..."
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                autoFocus
-              />
+        <Card className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-hidden">
+          <CardContent className="p-0">
+            <div className="p-3 border-b border-white/10">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  placeholder={placeholder}
+                  className="pl-9 bg-tacktix-dark-light text-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
-            
-            <div className="max-h-64 overflow-y-auto">
-              {filteredBanks.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No banks found
+            <div className="max-h-48 overflow-y-auto">
+              {filteredBanks.map((bank) => (
+                <div
+                  key={bank.code}
+                  className="flex items-center justify-between p-3 hover:bg-tacktix-dark-light cursor-pointer"
+                  onClick={() => handleBankSelect(bank)}
+                >
+                  <div>
+                    <div className="font-medium text-white">{bank.name}</div>
+                    <div className="text-xs text-gray-400">{bank.code}</div>
+                  </div>
+                  {selectedBank?.code === bank.code && (
+                    <Check className="h-4 w-4 text-tacktix-blue" />
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredBanks.map((bank) => (
-                    <button
-                      key={bank.code}
-                      className={cn(
-                        "w-full text-left px-3 py-2 rounded-sm hover:bg-accent transition-colors flex items-center justify-between",
-                        value === bank.code && "bg-accent"
-                      )}
-                      onClick={() => handleBankSelect(bank.code)}
-                      type="button"
-                    >
-                      <div>
-                        <div className="font-medium">{bank.name}</div>
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {bank.type} Bank
-                        </div>
-                      </div>
-                      {value === bank.code && <Check className="h-4 w-4" />}
-                    </button>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {isOpen && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setIsOpen(false)}
-        />
       )}
     </div>
   );
