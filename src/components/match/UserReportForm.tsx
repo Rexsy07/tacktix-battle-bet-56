@@ -61,13 +61,13 @@ const UserReportForm = ({
     setIsSubmitting(true);
     try {
       const { error } = await supabase
-        .from("user_reports")
+        .from("disputes")
         .insert({
           match_id: matchId,
-          reporter_id: currentUserId,
-          reported_user_id: reportedUserId,
+          reported_by: currentUserId,
           reason,
-          description: description.trim()
+          description: description.trim(),
+          status: 'open'
         });
         
       if (error) throw error;

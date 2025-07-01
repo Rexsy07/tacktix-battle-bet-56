@@ -1,134 +1,188 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+export interface MatchResultSubmission {
+  id: string;
+  match_id: string;
+  submitted_by: string;
+  result_type: "win" | "loss" | "draw" | "dispute";
+  winner_id?: string;
+  notes?: string;
+  proof_urls?: string[];
+  created_at: string;
+}
+
+export interface PlayerRating {
+  id: string;
+  match_id: string;
+  rater_id: string;
+  rated_id: string;
+  rating: number;
+  comment?: string;
+  created_at: string;
+}
+
+export interface UserReport {
+  id: string;
+  match_id: string;
+  reported_by: string;
+  reason: string;
+  description: string;
+  status: string;
+  created_at: string;
+}
+
+/**
+ * Submit match result with evidence
+ */
 export const submitMatchResult = async (
   matchId: string,
-  submittedBy: string,
-  resultType: string,
-  winnerId: string | null,
-  evidenceUrls: string[],
-  description: string
+  userId: string,
+  resultType: "win" | "loss" | "draw" | "dispute",
+  winnerId?: string,
+  notes?: string,
+  proofUrls?: string[]
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
       .from("match_result_submissions")
       .insert({
         match_id: matchId,
-        submitted_by: submittedBy,
+        submitted_by: userId,
         result_type: resultType,
-        winner_id: winnerId,
-        evidence_urls: evidenceUrls,
-        description: description || null
+        winner_id: winnerId || null,
+        notes: notes || null,
+        proof_urls: proofUrls || null
       });
 
     if (error) throw error;
 
     return { success: true };
   } catch (error: any) {
-    console.error("Error submitting match result:", error);
     return { success: false, error: error.message };
   }
 };
 
-export const getMatchResults = async (matchId: string): Promise<{ success: boolean; data?: any[]; error?: string }> => {
+/**
+ * Submit player rating
+ */
+export const submitPlayerRating = async (
+  matchId: string,
+  raterId: string,
+  ratedId: string,
+  rating: number,
+  comment?: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from("player_ratings")
+      .insert({
+        match_id: matchId,
+        rater_id: raterId,
+        rated_id: ratedId,
+        rating,
+        comment: comment || null
+      });
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Submit user report using disputes table
+ */
+export const submitUserReport = async (
+  matchId: string,
+  reporterId: string,
+  reason: string,
+  description: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from("disputes")
+      .insert({
+        match_id: matchId,
+        reported_by: reporterId,
+        reason,
+        description,
+        status: 'open'
+      });
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get match result submissions for moderation
+ */
+export const getMatchResultSubmissions = async (): Promise<{
+  data: MatchResultSubmission[] | null;
+  error: string | null;
+}> => {
   try {
     const { data, error } = await supabase
       .from("match_result_submissions")
       .select("*")
-      .eq("match_id", matchId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return { success: true, data: data || [] };
+    return { data, error: null };
   } catch (error: any) {
-    console.error("Error fetching match results:", error);
-    return { success: false, error: error.message };
+    return { data: null, error: error.message };
   }
 };
 
-export const approveMatchResult = async (
-  submissionId: string,
-  moderatorId: string,
-  matchId: string,
-  winnerId: string | null
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // Update the submission status
-    const { error: submissionError } = await supabase
-      .from("match_result_submissions")
-      .update({
-        status: "approved",
-        reviewed_by: moderatorId,
-        reviewed_at: new Date().toISOString()
-      })
-      .eq("id", submissionId);
-
-    if (submissionError) throw submissionError;
-
-    // Update the match with the winner and status
-    const { error: matchError } = await supabase
-      .from("matches")
-      .update({
-        status: "completed",
-        winner_id: winnerId,
-        end_time: new Date().toISOString()
-      })
-      .eq("id", matchId);
-
-    if (matchError) throw matchError;
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error approving match result:", error);
-    return { success: false, error: error.message };
-  }
-};
-
-export const getUserReports = async (userId?: string): Promise<{ success: boolean; data?: any[]; error?: string }> => {
-  try {
-    let query = supabase
-      .from("user_reports")
-      .select(`
-        *,
-        reporter:profiles!user_reports_reporter_id_fkey(username),
-        reported_user:profiles!user_reports_reported_user_id_fkey(username),
-        match:matches(title)
-      `)
-      .order("created_at", { ascending: false });
-
-    if (userId) {
-      query = query.eq("reported_user_id", userId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-
-    return { success: true, data: data || [] };
-  } catch (error: any) {
-    console.error("Error fetching user reports:", error);
-    return { success: false, error: error.message };
-  }
-};
-
-export const getPlayerRatings = async (userId: string): Promise<{ success: boolean; data?: any[]; error?: string }> => {
+/**
+ * Get player ratings for a specific user
+ */
+export const getUserRatings = async (userId: string): Promise<{
+  data: PlayerRating[] | null;
+  error: string | null;
+}> => {
   try {
     const { data, error } = await supabase
       .from("player_ratings")
-      .select(`
-        *,
-        rater:profiles!player_ratings_rater_id_fkey(username),
-        match:matches(title)
-      `)
+      .select("*")
       .eq("rated_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return { success: true, data: data || [] };
+    return { data, error: null };
   } catch (error: any) {
-    console.error("Error fetching player ratings:", error);
-    return { success: false, error: error.message };
+    return { data: null, error: error.message };
+  }
+};
+
+/**
+ * Upload files to storage (placeholder - you'll need to implement actual storage)
+ */
+export const uploadMatchEvidence = async (
+  files: File[],
+  matchId: string
+): Promise<{ urls: string[]; error?: string }> => {
+  // This is a placeholder implementation
+  // In a real app, you would upload to Supabase Storage or another service
+  try {
+    const urls: string[] = [];
+    
+    for (const file of files) {
+      // Simulate upload - replace with actual storage implementation
+      const mockUrl = `https://example.com/evidence/${matchId}/${file.name}`;
+      urls.push(mockUrl);
+    }
+    
+    return { urls };
+  } catch (error: any) {
+    return { urls: [], error: error.message };
   }
 };
