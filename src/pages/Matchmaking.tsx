@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Plus, Gamepad2, Target, Zap, Users } from "lucide-react";
+import { Crown, Plus, Gamepad2, Target, Zap, Users, Shield, Map, Gun } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTimeRemaining } from "@/utils/matchmaking-helpers";
@@ -23,7 +23,7 @@ const Matchmaking = () => {
   const [matches, setMatches] = useState([]);
 
   // Create Match State
-  const [activeMode, setActiveMode] = useState("battle-royale");
+  const [activeMode, setActiveMode] = useState("search-destroy");
   const [selectedMap, setSelectedMap] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,22 +38,58 @@ const Matchmaking = () => {
 
   const gameModes = [
     {
-      id: "battle-royale",
-      name: "Battle Royale",
+      id: "search-destroy",
+      name: "Search & Destroy",
+      icon: <Shield className="h-6 w-6" />,
+      maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"]
+    },
+    {
+      id: "hardpoint",
+      name: "Hardpoint",
       icon: <Target className="h-6 w-6" />,
-      maps: ["Erangel", "Miramar", "Sanhok", "Vikendi"]
+      maps: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"]
+    },
+    {
+      id: "domination",
+      name: "Domination",
+      icon: <Map className="h-6 w-6" />,
+      maps: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"]
     },
     {
       id: "team-deathmatch",
       name: "Team Deathmatch",
-      icon: <Users className="h-6 w-6" />,
-      maps: ["Dust2", "Inferno", "Mirage", "Cache"]
+      icon: <Gun className="h-6 w-6" />,
+      maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"]
     },
     {
-      id: "quick-match",
-      name: "Quick Match",
-      icon: <Zap className="h-6 w-6" />,
-      maps: ["Random"]
+      id: "gunfight",
+      name: "Gunfight",
+      icon: <Target className="h-6 w-6" />,
+      maps: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"]
+    },
+    {
+      id: "snipers-only",
+      name: "Snipers Only",
+      icon: <Target className="h-6 w-6" />,
+      maps: ["Crossfire", "Highrise", "Tunisia", "Oasis", "Monastery"]
+    },
+    {
+      id: "battle-royale",
+      name: "Battle Royale",
+      icon: <Crown className="h-6 w-6" />,
+      maps: ["Isolated", "Alcatraz"]
+    },
+    {
+      id: "control",
+      name: "Control",
+      icon: <Shield className="h-6 w-6" />,
+      maps: ["Hackney Yard", "Firing Range", "Summit", "Standoff", "Raid"]
+    },
+    {
+      id: "kill-confirmed",
+      name: "Kill Confirmed",
+      icon: <Target className="h-6 w-6" />,
+      maps: ["Raid", "Hijacked", "Takeoff"]
     }
   ];
 
@@ -123,8 +159,6 @@ const Matchmaking = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const currentMode = gameModes.find(mode => mode.id === activeMode);
-      
       const { error } = await supabase
         .from("matches")
         .insert({

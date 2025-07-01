@@ -19,10 +19,10 @@ interface ResultSubmission {
   match: {
     title: string;
     game_mode: string;
-  };
+  } | null;
   submitter: {
     username: string;
-  };
+  } | null;
   winner: {
     username: string;
   } | null;
@@ -50,7 +50,7 @@ const ResultReviewList = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setSubmissions(data || []);
+      setSubmissions((data as any) || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -93,8 +93,6 @@ const ResultReviewList = () => {
 
   const handleRejectResult = async (submissionId: string) => {
     try {
-      // For now, we'll just show a toast. In a full implementation,
-      // you might want to add a rejection reason or status
       toast({
         title: "Result Rejected",
         description: "Match result has been rejected",
