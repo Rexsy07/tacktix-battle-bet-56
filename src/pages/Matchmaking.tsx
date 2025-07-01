@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Plus, Gamepad2, Target, Zap, Users, Shield, Map, Gun } from "lucide-react";
+import { Crown, Plus, Gamepad2, Target, Zap, Users, Shield, Map, Crosshairs } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTimeRemaining } from "@/utils/matchmaking-helpers";
@@ -58,7 +58,7 @@ const Matchmaking = () => {
     {
       id: "team-deathmatch",
       name: "Team Deathmatch",
-      icon: <Gun className="h-6 w-6" />,
+      icon: <Crosshairs className="h-6 w-6" />,
       maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"]
     },
     {
@@ -107,7 +107,7 @@ const Matchmaking = () => {
         .select(`
           *,
           host:profiles!matches_created_by_fkey(username),
-          opponent:profiles!matches_opponent_id_fkey(username)
+          opponent:profiles(username)
         `)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
@@ -115,6 +115,7 @@ const Matchmaking = () => {
       if (error) throw error;
       setMatches(data || []);
     } catch (error: any) {
+      console.error("Error fetching matches:", error);
       toast({
         title: "Error",
         description: "Failed to fetch matches",
@@ -196,6 +197,7 @@ const Matchmaking = () => {
       setScheduledTime("");
       setActiveTab("browse");
     } catch (error: any) {
+      console.error("Error creating match:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create match",

@@ -3,70 +3,81 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
-import BankSearchSelect from "./BankSearchSelect";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import BankSearchSelect from "./BankSearchSelect";
 
 interface WithdrawFormProps {
-  balance: number;
-  onWithdraw: (amount: number, bankCode: string, accountNumber: string) => Promise<void>;
+  onSuccess: () => void;
 }
 
-const WithdrawForm = ({ balance, onWithdraw }: WithdrawFormProps) => {
+const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
   const [amount, setAmount] = useState("");
-  const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [bankCode, setBankCode] = useState("");
+  const [accountName, setAccountName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!amount || !accountNumber || !bankCode) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const withdrawAmount = parseFloat(amount);
-    
-    if (!withdrawAmount || withdrawAmount <= 0) {
+    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Please enter a valid withdrawal amount",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (withdrawAmount > balance) {
-      toast({
-        title: "Insufficient Funds",
-        description: "Withdrawal amount exceeds your current balance",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!bankCode) {
-      toast({
-        title: "Bank Required",
-        description: "Please select your bank",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!accountNumber || accountNumber.length < 10) {
-      toast({
-        title: "Invalid Account Number",
-        description: "Please enter a valid account number",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
 
     setIsLoading(true);
     try {
-      await onWithdraw(withdrawAmount, bankCode, accountNumber);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Create withdrawal transaction
+      const { error } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "withdrawal",
+          amount: -withdrawAmount,
+          status: "pending",
+          description: `Withdrawal to ${accountName} (${accountNumber})`
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Withdrawal Request Submitted",
+        description: "Your withdrawal request has been submitted for processing",
+      });
+
+      // Reset form
       setAmount("");
-      setBankCode("");
       setAccountNumber("");
+      setBankCode("");
+      setAccountName("");
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit withdrawal request",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -76,73 +87,56 @@ const WithdrawForm = ({ balance, onWithdraw }: WithdrawFormProps) => {
     <Card>
       <CardHeader>
         <CardTitle>Withdraw Funds</CardTitle>
-        <CardDescription>
-          Withdraw your earnings to your bank account
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="withdraw-amount">Amount (₦)</Label>
+          <div>
+            <Label htmlFor="amount">Amount (₦)</Label>
             <Input
-              id="withdraw-amount"
+              id="amount"
               type="number"
-              placeholder="0.00"
+              placeholder="Enter amount to withdraw"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              min="1"
-              max={balance}
+              min="100"
               step="0.01"
-              disabled={isLoading}
-            />
-            <p className="text-sm text-muted-foreground">
-              Available balance: ₦{balance.toLocaleString()}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Select Bank</Label>
-            <BankSearchSelect
-              value={bankCode}
-              onChange={setBankCode}
-              disabled={isLoading}
+              required
             />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="account-number">Account Number</Label>
+          
+          <div>
+            <Label htmlFor="bank">Select Bank</Label>
+            <BankSearchSelect 
+              onBankSelect={(bank) => setBankCode(bank.code)}
+              selectedBankCode={bankCode}
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="accountNumber">Account Number</Label>
             <Input
-              id="account-number"
-              type="text"
+              id="accountNumber"
               placeholder="Enter your account number"
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
               maxLength={10}
-              disabled={isLoading}
+              required
             />
           </div>
-
-          <div className="flex items-start space-x-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
-            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Processing Time</p>
-              <p>Withdrawals are processed within 1-3 business days</p>
-            </div>
+          
+          <div>
+            <Label htmlFor="accountName">Account Name</Label>
+            <Input
+              id="accountName"
+              placeholder="Enter account holder name"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              required
+            />
           </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading || !amount || !bankCode || !accountNumber}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              `Withdraw ₦${amount || '0'}`
-            )}
+          
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Processing..." : "Submit Withdrawal Request"}
           </Button>
         </form>
       </CardContent>
