@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Plus, Gamepad2, Target, Zap, Users, Shield, Map, Crosshairs } from "lucide-react";
+import { Crown, Plus, Gamepad2, Target, Zap, Users, Shield, Map, Crosshair } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTimeRemaining } from "@/utils/matchmaking-helpers";
@@ -41,55 +41,64 @@ const Matchmaking = () => {
       id: "search-destroy",
       name: "Search & Destroy",
       icon: <Shield className="h-6 w-6" />,
-      maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"]
+      maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"],
+      teamSizes: ["1v1", "2v2", "3v3", "4v4", "5v5"]
     },
     {
       id: "hardpoint",
       name: "Hardpoint",
       icon: <Target className="h-6 w-6" />,
-      maps: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"]
+      maps: ["Nuketown", "Raid", "Hijacked", "Takeoff", "Scrapyard"],
+      teamSizes: ["2v2", "3v3", "4v4", "5v5"]
     },
     {
       id: "domination",
       name: "Domination",
       icon: <Map className="h-6 w-6" />,
-      maps: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"]
+      maps: ["Terminal", "Hackney Yard", "Meltdown", "Tunisia", "Highrise"],
+      teamSizes: ["3v3", "4v4", "5v5"]
     },
     {
       id: "team-deathmatch",
       name: "Team Deathmatch",
-      icon: <Crosshairs className="h-6 w-6" />,
-      maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"]
+      icon: <Crosshair className="h-6 w-6" />,
+      maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"],
+      teamSizes: ["2v2", "3v3", "4v4", "5v5"]
     },
     {
       id: "gunfight",
       name: "Gunfight",
       icon: <Target className="h-6 w-6" />,
-      maps: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"]
+      maps: ["King", "Pine", "Gulag Showers", "Docks", "Saloon"],
+      teamSizes: ["1v1", "2v2"]
     },
     {
       id: "snipers-only",
       name: "Snipers Only",
-      icon: <Target className="h-6 w-6" />,
-      maps: ["Crossfire", "Highrise", "Tunisia", "Oasis", "Monastery"]
+      icon: <Crosshair className="h-6 w-6" />,
+      maps: ["Crossfire", "Highrise", "Tunisia", "Oasis", "Monastery"],
+      teamSizes: ["1v1", "2v2", "3v3"]
     },
     {
       id: "battle-royale",
       name: "Battle Royale",
       icon: <Crown className="h-6 w-6" />,
-      maps: ["Isolated", "Alcatraz"]
+      maps: ["Isolated", "Alcatraz"],
+      teamSizes: ["Solo", "Duo", "Squad"]
     },
     {
       id: "control",
       name: "Control",
       icon: <Shield className="h-6 w-6" />,
-      maps: ["Hackney Yard", "Firing Range", "Summit", "Standoff", "Raid"]
+      maps: ["Hackney Yard", "Firing Range", "Summit", "Standoff", "Raid"],
+      teamSizes: ["3v3", "5v5"]
     },
     {
       id: "kill-confirmed",
       name: "Kill Confirmed",
       icon: <Target className="h-6 w-6" />,
-      maps: ["Raid", "Hijacked", "Takeoff"]
+      maps: ["Raid", "Hijacked", "Takeoff"],
+      teamSizes: ["3v3", "5v5"]
     }
   ];
 
@@ -136,6 +145,15 @@ const Matchmaking = () => {
       return;
     }
 
+    if (!selectedMap) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a map",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const fee = parseFloat(entryFee);
     if (isNaN(fee) || fee < 0) {
       toast({
@@ -168,7 +186,7 @@ const Matchmaking = () => {
           title: title.trim(),
           description: description.trim() || null,
           game_mode: activeMode,
-          map_name: selectedMap || null,
+          map_name: selectedMap,
           lobby_code: lobbyCode.trim() || null,
           host_notes: hostNotes.trim() || null,
           entry_fee: fee,
@@ -195,6 +213,7 @@ const Matchmaking = () => {
       setHostNotes("");
       setEntryFee("0");
       setScheduledTime("");
+      setSelectedMap("");
       setActiveTab("browse");
     } catch (error: any) {
       console.error("Error creating match:", error);
@@ -209,6 +228,26 @@ const Matchmaking = () => {
   };
 
   const currentMode = gameModes.find(mode => mode.id === activeMode);
+  const getMaxPlayersForMode = () => {
+    if (!currentMode) return [];
+    
+    switch(activeMode) {
+      case "gunfight":
+        return teamSize === "1v1" ? ["2"] : ["4"];
+      case "snipers-only":
+        return teamSize === "1v1" ? ["2"] : teamSize === "2v2" ? ["4"] : ["6"];
+      case "battle-royale":
+        return teamSize === "Solo" ? ["1"] : teamSize === "Duo" ? ["2"] : ["4"];
+      case "control":
+        return teamSize === "3v3" ? ["6"] : ["10"];
+      case "kill-confirmed":
+        return teamSize === "3v3" ? ["6"] : ["10"];
+      case "search-destroy":
+        return teamSize === "1v1" ? ["2"] : teamSize === "2v2" ? ["4"] : teamSize === "3v3" ? ["6"] : teamSize === "4v4" ? ["8"] : ["10"];
+      default:
+        return teamSize === "2v2" ? ["4"] : teamSize === "3v3" ? ["6"] : teamSize === "4v4" ? ["8"] : ["10"];
+    }
+  };
 
   return (
     <Layout>
@@ -216,7 +255,7 @@ const Matchmaking = () => {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-tacktix-blue mb-2">Find Your Perfect Match</h1>
           <p className="text-gray-400">
-            Challenge players, create tournaments, or join exciting matches
+            Challenge players in Call of Duty Mobile matches with real money prizes
           </p>
         </div>
 
@@ -231,7 +270,7 @@ const Matchmaking = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5" />
-                  Create New Match
+                  Create New COD Mobile Match
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -295,35 +334,6 @@ const Matchmaking = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="lobby-code">Lobby Code</Label>
-                    <Input
-                      id="lobby-code"
-                      placeholder="Enter lobby/room code..."
-                      value={lobbyCode}
-                      onChange={(e) => setLobbyCode(e.target.value)}
-                      disabled={isCreating}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="max-players">Max Players</Label>
-                    <Select value={maxPlayers} onValueChange={setMaxPlayers} disabled={isCreating}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select max players" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2">2 Players</SelectItem>
-                        <SelectItem value="4">4 Players</SelectItem>
-                        <SelectItem value="6">6 Players</SelectItem>
-                        <SelectItem value="8">8 Players</SelectItem>
-                        <SelectItem value="10">10 Players</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
                 <div>
                   <Label>Game Mode *</Label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
@@ -335,7 +345,11 @@ const Matchmaking = () => {
                             ? "border-tacktix-blue bg-tacktix-blue/10"
                             : "border-white/10 hover:border-white/20"
                         }`}
-                        onClick={() => setActiveMode(mode.id)}
+                        onClick={() => {
+                          setActiveMode(mode.id);
+                          setSelectedMap("");
+                          setTeamSize(mode.teamSizes[0]);
+                        }}
                       >
                         <CardContent className="p-4 text-center">
                           <div className="flex justify-center mb-2">{mode.icon}</div>
@@ -346,27 +360,86 @@ const Matchmaking = () => {
                   </div>
                 </div>
 
-                {currentMode?.maps.length > 0 && (
-                  <div>
-                    <Label>Map</Label>
-                    <Select value={selectedMap} onValueChange={setSelectedMap} disabled={isCreating}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a map" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currentMode.maps.map((map) => (
-                          <SelectItem key={map} value={map}>
-                            {map}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {currentMode && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Team Size *</Label>
+                        <Select value={teamSize} onValueChange={(value) => {
+                          setTeamSize(value);
+                          setMaxPlayers(getMaxPlayersForMode()[0] || "2");
+                        }} disabled={isCreating}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select team size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentMode.teamSizes.map((size) => (
+                              <SelectItem key={size} value={size}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label>Map *</Label>
+                        <Select value={selectedMap} onValueChange={setSelectedMap} disabled={isCreating}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a map" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentMode.maps.map((map) => (
+                              <SelectItem key={map} value={map}>
+                                {map}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="lobby-code">Lobby Code</Label>
+                        <Input
+                          id="lobby-code"
+                          placeholder="Enter lobby/room code..."
+                          value={lobbyCode}
+                          onChange={(e) => setLobbyCode(e.target.value)}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="scheduled-time">Scheduled Time (Optional)</Label>
+                        <Input
+                          id="scheduled-time"
+                          type="datetime-local"
+                          value={scheduledTime}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                          disabled={isCreating}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="host-notes">Host Notes</Label>
+                      <Textarea
+                        id="host-notes"
+                        placeholder="Additional notes for opponents (rules, requirements, etc.)..."
+                        value={hostNotes}
+                        onChange={(e) => setHostNotes(e.target.value)}
+                        disabled={isCreating}
+                        rows={2}
+                      />
+                    </div>
+                  </>
                 )}
 
                 <Button
                   onClick={handleCreateMatch}
-                  disabled={isCreating}
+                  disabled={isCreating || !currentMode || !selectedMap}
                   className="w-full"
                   variant={isVIPMatch ? "gradient" : "default"}
                 >
@@ -385,7 +458,7 @@ const Matchmaking = () => {
                       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tacktix-blue mb-4"></div>
                       <h3 className="text-xl font-medium text-white mb-2">Loading Matches</h3>
                       <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                        Fetching available matches. This won't take long.
+                        Fetching available COD Mobile matches...
                       </p>
                     </div>
                   </Card>
@@ -403,7 +476,7 @@ const Matchmaking = () => {
                       <Gamepad2 size={48} className="text-gray-500 mb-4" />
                       <h3 className="text-xl font-medium text-white mb-2">No Matches Found</h3>
                       <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                        No matches available right now. Create your own match to get started!
+                        No COD Mobile matches available right now. Create your own match to get started!
                       </p>
                       <Button variant="gradient" onClick={() => setActiveTab("create")}>
                         Create a Match

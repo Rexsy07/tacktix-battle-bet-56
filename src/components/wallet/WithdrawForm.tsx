@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +19,10 @@ const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
   const [accountName, setAccountName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  const handleBankSelect = (bank: { code: string; name: string }) => {
+    setBankCode(bank.code);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +110,7 @@ const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
           <div>
             <Label htmlFor="bank">Select Bank</Label>
             <BankSearchSelect 
-              onBankSelect={(bank) => setBankCode(bank.code)}
+              onSelect={handleBankSelect}
               selectedBankCode={bankCode}
             />
           </div>
