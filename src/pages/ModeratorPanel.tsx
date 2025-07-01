@@ -9,6 +9,7 @@ import DisputeList from "@/components/moderator/DisputeList";
 import UserList from "@/components/moderator/UserList";
 import MatchList from "@/components/moderator/MatchList";
 import DepositVerification from "@/components/admin/DepositVerification";
+import ResultReviewList from "@/components/moderator/ResultReviewList";
 
 const ModeratorPanel = () => {
   const { toast } = useToast();
@@ -64,16 +65,21 @@ const ModeratorPanel = () => {
       <div className="space-y-8">
         <div>
           <h1 className="text-2xl font-bold">Moderator Panel</h1>
-          <p className="text-gray-400">Manage disputes, users, matches, and deposits</p>
+          <p className="text-gray-400">Manage disputes, users, matches, results, and deposits</p>
         </div>
         
-        <Tabs defaultValue="disputes" className="w-full">
-          <TabsList className="grid grid-cols-4 w-full md:w-[600px]">
+        <Tabs defaultValue="results" className="w-full">
+          <TabsList className="grid grid-cols-5 w-full md:w-[700px]">
+            <TabsTrigger value="results">Results</TabsTrigger>
             <TabsTrigger value="disputes">Disputes</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="matches">Matches</TabsTrigger>
             <TabsTrigger value="deposits">Deposits</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="results">
+            <ResultReviewList />
+          </TabsContent>
           
           <TabsContent value="disputes">
             <DisputeList />
