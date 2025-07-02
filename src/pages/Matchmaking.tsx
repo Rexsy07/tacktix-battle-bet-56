@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -95,7 +94,7 @@ const Matchmaking = () => {
         .select(`
           *,
           host:profiles!matches_created_by_fkey(username),
-          opponent:profiles(username)
+          opponent:profiles!matches_opponent_id_fkey(username)
         `)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
