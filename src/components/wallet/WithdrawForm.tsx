@@ -20,8 +20,8 @@ const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleBankSelect = (bank: { code: string; name: string }) => {
-    setBankCode(bank.code);
+  const handleBankChange = (value: string) => {
+    setBankCode(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,8 +110,9 @@ const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
           <div>
             <Label htmlFor="bank">Select Bank</Label>
             <BankSearchSelect 
-              onSelect={handleBankSelect}
-              selectedBankCode={bankCode}
+              value={bankCode}
+              onChange={handleBankChange}
+              disabled={isLoading}
             />
           </div>
           
