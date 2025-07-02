@@ -23,7 +23,7 @@ const Matchmaking = () => {
   const [matches, setMatches] = useState([]);
 
   // Create Match State
-  const [activeMode, setActiveMode] = useState("search-destroy");
+  const [activeMode, setActiveMode] = useState("search_destroy");
   const [selectedMap, setSelectedMap] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,7 +38,7 @@ const Matchmaking = () => {
 
   const gameModes = [
     {
-      id: "search-destroy",
+      id: "search_destroy",
       name: "Search & Destroy",
       icon: <Shield className="h-6 w-6" />,
       maps: ["Standoff", "Crash", "Crossfire", "Firing Range", "Summit"],
@@ -59,7 +59,7 @@ const Matchmaking = () => {
       teamSizes: ["3v3", "4v4", "5v5"]
     },
     {
-      id: "team-deathmatch",
+      id: "team_deathmatch",
       name: "Team Deathmatch",
       icon: <Crosshair className="h-6 w-6" />,
       maps: ["Killhouse", "Shipment", "Rust", "Dome", "Coastal"],
@@ -73,32 +73,11 @@ const Matchmaking = () => {
       teamSizes: ["1v1", "2v2"]
     },
     {
-      id: "snipers-only",
-      name: "Snipers Only",
-      icon: <Crosshair className="h-6 w-6" />,
-      maps: ["Crossfire", "Highrise", "Tunisia", "Oasis", "Monastery"],
-      teamSizes: ["1v1", "2v2", "3v3"]
-    },
-    {
-      id: "battle-royale",
+      id: "battle_royale",
       name: "Battle Royale",
       icon: <Crown className="h-6 w-6" />,
       maps: ["Isolated", "Alcatraz"],
       teamSizes: ["Solo", "Duo", "Squad"]
-    },
-    {
-      id: "control",
-      name: "Control",
-      icon: <Shield className="h-6 w-6" />,
-      maps: ["Hackney Yard", "Firing Range", "Summit", "Standoff", "Raid"],
-      teamSizes: ["3v3", "5v5"]
-    },
-    {
-      id: "kill-confirmed",
-      name: "Kill Confirmed",
-      icon: <Target className="h-6 w-6" />,
-      maps: ["Raid", "Hijacked", "Takeoff"],
-      teamSizes: ["3v3", "5v5"]
     }
   ];
 
@@ -234,15 +213,9 @@ const Matchmaking = () => {
     switch(activeMode) {
       case "gunfight":
         return teamSize === "1v1" ? ["2"] : ["4"];
-      case "snipers-only":
-        return teamSize === "1v1" ? ["2"] : teamSize === "2v2" ? ["4"] : ["6"];
-      case "battle-royale":
+      case "battle_royale":
         return teamSize === "Solo" ? ["1"] : teamSize === "Duo" ? ["2"] : ["4"];
-      case "control":
-        return teamSize === "3v3" ? ["6"] : ["10"];
-      case "kill-confirmed":
-        return teamSize === "3v3" ? ["6"] : ["10"];
-      case "search-destroy":
+      case "search_destroy":
         return teamSize === "1v1" ? ["2"] : teamSize === "2v2" ? ["4"] : teamSize === "3v3" ? ["6"] : teamSize === "4v4" ? ["8"] : ["10"];
       default:
         return teamSize === "2v2" ? ["4"] : teamSize === "3v3" ? ["6"] : teamSize === "4v4" ? ["8"] : ["10"];

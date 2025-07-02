@@ -110,7 +110,6 @@ const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
           <div>
             <Label htmlFor="bank">Select Bank</Label>
             <BankSearchSelect 
-              onSelect={handleBankSelect}
               selectedBankCode={bankCode}
             />
           </div>

@@ -183,7 +183,6 @@ const Wallet = () => {
           <TabsContent value="withdraw" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <WithdrawForm 
-                currentBalance={wallet?.balance || 0}
                 onSuccess={handleWithdrawSuccess}
               />
             </div>
