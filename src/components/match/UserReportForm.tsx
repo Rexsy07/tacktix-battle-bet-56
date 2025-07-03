@@ -50,28 +50,18 @@ const UserReportForm = ({
 
     setIsSubmitting(true);
     try {
-      // Use raw SQL query to insert into player_reports since it's not in the types yet
-      const { error } = await supabase.rpc('create_player_report', {
-        p_match_id: matchId,
-        p_reported_by: currentUserId,
-        p_reported_user: reportedUserId,
-        p_reason: reason,
-        p_description: description.trim()
-      });
+      // Insert directly into disputes table (which exists in the database)
+      const { error } = await supabase
+        .from("disputes")
+        .insert({
+          match_id: matchId,
+          reported_by: currentUserId,
+          reason: reason,
+          description: description.trim(),
+          status: 'open'
+        });
 
-      if (error) {
-        // Fallback to direct insert if RPC doesn't exist
-        const { error: insertError } = await supabase
-          .from("disputes")
-          .insert({
-            match_id: matchId,
-            reported_by: currentUserId,
-            reason: reason,
-            description: description.trim()
-          });
-
-        if (insertError) throw insertError;
-      }
+      if (error) throw error;
 
       toast({
         title: "Report Submitted",
@@ -80,6 +70,7 @@ const UserReportForm = ({
 
       onSuccess();
     } catch (error: any) {
+      console.error("Error submitting report:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to submit report",

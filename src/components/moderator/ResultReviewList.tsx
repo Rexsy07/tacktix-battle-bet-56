@@ -52,6 +52,7 @@ const ResultReviewList = () => {
       if (error) throw error;
       setSubmissions((data as any) || []);
     } catch (error: any) {
+      console.error("Error fetching submissions:", error);
       toast({
         title: "Error",
         description: "Failed to fetch result submissions",
@@ -76,6 +77,14 @@ const ResultReviewList = () => {
 
       if (matchError) throw matchError;
 
+      // Remove the submission after approval
+      const { error: deleteError } = await supabase
+        .from("match_result_submissions")
+        .delete()
+        .eq("id", submission.id);
+
+      if (deleteError) throw deleteError;
+
       toast({
         title: "Result Approved",
         description: "Match result has been approved and winner declared",
@@ -83,6 +92,7 @@ const ResultReviewList = () => {
 
       fetchSubmissions();
     } catch (error: any) {
+      console.error("Error approving result:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to approve result",
@@ -93,6 +103,13 @@ const ResultReviewList = () => {
 
   const handleRejectResult = async (submissionId: string) => {
     try {
+      const { error } = await supabase
+        .from("match_result_submissions")
+        .delete()
+        .eq("id", submissionId);
+
+      if (error) throw error;
+
       toast({
         title: "Result Rejected",
         description: "Match result has been rejected",
@@ -100,6 +117,7 @@ const ResultReviewList = () => {
 
       fetchSubmissions();
     } catch (error: any) {
+      console.error("Error rejecting result:", error);
       toast({
         title: "Error",
         description: "Failed to reject result",
