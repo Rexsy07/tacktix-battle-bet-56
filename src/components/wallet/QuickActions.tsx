@@ -1,41 +1,15 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { CreditCard, Smartphone, Building, Banknote } from "lucide-react";
+import { CreditCard, Smartphone, Building } from "lucide-react";
 
-interface QuickActionsProps {
-  balance: number;
-  onQuickDeposit: (amount: number) => void;
-}
-
-const QuickActions = ({ balance, onQuickDeposit }: QuickActionsProps) => {
-  const quickAmounts = [1000, 5000, 10000, 25000];
-
+const QuickActions = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
+        <CardTitle>Payment Methods</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <h4 className="font-medium mb-3">Quick Deposit</h4>
-          <div className="grid grid-cols-2 gap-2">
-            {quickAmounts.map((amount) => (
-              <Button
-                key={amount}
-                variant="outline"
-                size="sm"
-                onClick={() => onQuickDeposit(amount)}
-                className="text-xs"
-              >
-                ₦{amount.toLocaleString()}
-              </Button>
-            ))}
-          </div>
-        </div>
-
         <div className="space-y-2">
-          <h4 className="font-medium">Payment Methods</h4>
           <div className="space-y-2">
             <div className="flex items-center p-2 bg-tacktix-dark-light rounded-md">
               <CreditCard className="h-4 w-4 text-tacktix-blue mr-2" />

@@ -6,11 +6,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import WalletBalance from "@/components/wallet/WalletBalance";
-import QuickActions from "@/components/wallet/QuickActions";
 import DepositForm from "@/components/wallet/DepositForm";
 import WithdrawForm from "@/components/wallet/WithdrawForm";
 import TransactionList from "@/components/wallet/TransactionList";
-import { getUserBalance, addToBalance } from "@/utils/wallet-utils";
 
 const Wallet = () => {
   const { toast } = useToast();
@@ -81,44 +79,6 @@ const Wallet = () => {
     }
   };
 
-  const handleQuickDeposit = async (amount: number) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Add to balance
-      const { success, error } = await addToBalance(session.user.id, amount);
-      
-      if (!success) {
-        throw new Error(error || "Failed to add funds");
-      }
-
-      // Create transaction record
-      await supabase.from("transactions").insert({
-        user_id: session.user.id,
-        type: "deposit",
-        amount: amount,
-        status: "completed",
-        description: `Quick deposit of ₦${amount.toLocaleString()}`
-      });
-
-      toast({
-        title: "Deposit Successful",
-        description: `₦${amount.toLocaleString()} has been added to your account`,
-      });
-
-      // Refresh wallet data
-      setRefreshTrigger(prev => prev + 1);
-      fetchWalletData();
-    } catch (error: any) {
-      toast({
-        title: "Deposit Failed",
-        description: error.message || "Failed to process deposit",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleDepositSuccess = () => {
     setRefreshTrigger(prev => prev + 1);
     fetchWalletData();
@@ -145,39 +105,17 @@ const Wallet = () => {
           </TabsList>
           
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <WalletBalance
-                  onDepositClick={() => setActiveTab("deposit")}
-                  onWithdrawClick={() => setActiveTab("withdraw")}
-                  refreshTrigger={refreshTrigger}
-                />
-              </div>
-              
-              <div>
-                <QuickActions
-                  balance={wallet?.balance || 0}
-                  onQuickDeposit={handleQuickDeposit}
-                />
-              </div>
-            </div>
+            <WalletBalance
+              onDepositClick={() => setActiveTab("deposit")}
+              onWithdrawClick={() => setActiveTab("withdraw")}
+              refreshTrigger={refreshTrigger}
+            />
             
             <TransactionList />
           </TabsContent>
           
           <TabsContent value="deposit" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2">
-                <DepositForm onSuccess={handleDepositSuccess} />
-              </div>
-              
-              <div>
-                <QuickActions
-                  balance={wallet?.balance || 0}
-                  onQuickDeposit={handleQuickDeposit}
-                />
-              </div>
-            </div>
+            <DepositForm onSuccess={handleDepositSuccess} />
           </TabsContent>
           
           <TabsContent value="withdraw" className="space-y-6">

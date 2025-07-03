@@ -5,8 +5,7 @@ import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Calendar, DollarSign, Trophy, AlertCircle } from "lucide-react";
+import { Users, Calendar, DollarSign, Trophy, AlertCircle, Crown, Shield, Target, Map, Crosshair, Gamepad2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { getUserBalance, deductFromBalance } from "@/utils/wallet-utils";
@@ -28,13 +27,10 @@ interface Match {
   created_at: string;
   bet_amount: number;
   map_name: string;
-}
-
-interface Profile {
-  id: string;
-  username: string;
-  avatar_url: string;
-  total_earnings: number;
+  team_size: string;
+  is_vip_match: boolean;
+  lobby_code: string;
+  host_notes: string;
 }
 
 const JoinMatch = () => {
@@ -42,11 +38,28 @@ const JoinMatch = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [match, setMatch] = useState<Match | null>(null);
-  const [participants, setParticipants] = useState<Profile[]>([]);
   const [userBalance, setUserBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  const gameModeIcons = {
+    search_destroy: <Shield className="h-5 w-5" />,
+    hardpoint: <Target className="h-5 w-5" />,
+    domination: <Map className="h-5 w-5" />,
+    team_deathmatch: <Crosshair className="h-5 w-5" />,
+    gunfight: <Target className="h-5 w-5" />,
+    battle_royale: <Crown className="h-5 w-5" />
+  };
+
+  const gameModeNames = {
+    search_destroy: "Search & Destroy",
+    hardpoint: "Hardpoint", 
+    domination: "Domination",
+    team_deathmatch: "Team Deathmatch",
+    gunfight: "Gunfight",
+    battle_royale: "Battle Royale"
+  };
 
   useEffect(() => {
     if (matchId) {
@@ -73,7 +86,6 @@ const JoinMatch = () => {
         .single();
 
       if (error) throw error;
-
       setMatch(data);
     } catch (error) {
       console.error("Error fetching match:", error);
@@ -92,21 +104,7 @@ const JoinMatch = () => {
 
     setIsJoining(true);
     try {
-      console.log("=== STARTING JOIN MATCH PROCESS ===");
-      console.log("Match ID:", match.id);
-      console.log("Current user:", currentUser.id);
-      console.log("Match details:", {
-        id: match.id,
-        status: match.status,
-        opponent_id: match.opponent_id,
-        host_id: match.host_id,
-        bet_amount: match.bet_amount
-      });
-      console.log("User balance:", userBalance);
-
-      // Check if user has sufficient balance
       if (userBalance < match.bet_amount) {
-        console.log("❌ Insufficient balance");
         toast({
           title: "Insufficient Balance",
           description: "Please deposit funds to join this match",
@@ -116,9 +114,7 @@ const JoinMatch = () => {
         return;
       }
 
-      // Check if user is not the host
       if (match.host_id === currentUser.id) {
-        console.log("❌ User is the host");
         toast({
           title: "Cannot Join Own Match",
           description: "You cannot join a match you created",
@@ -127,11 +123,6 @@ const JoinMatch = () => {
         return;
       }
 
-      console.log("✅ Basic validation checks passed");
-
-      // Simplified update without complex WHERE conditions
-      console.log("🚀 Attempting to update match with opponent...");
-      
       const updateData = {
         opponent_id: currentUser.id,
         status: 'active',
@@ -140,26 +131,17 @@ const JoinMatch = () => {
         updated_at: new Date().toISOString()
       };
 
-      console.log("📝 Update data:", updateData);
-
-      // Simple update with just the match ID - let the database handle concurrency
       const { data: updatedMatches, error: matchError } = await supabase
         .from("matches")
         .update(updateData)
         .eq("id", match.id)
         .select();
 
-      console.log("🔄 Database update response:");
-      console.log("  - Updated matches data:", updatedMatches);
-      console.log("  - Error:", matchError);
-
       if (matchError) {
-        console.error("❌ Match update failed:", matchError);
         throw new Error(`Failed to join match: ${matchError.message}`);
       }
 
       if (!updatedMatches || updatedMatches.length === 0) {
-        console.error("❌ No match was updated");
         toast({
           title: "Failed to Join",
           description: "Could not update the match. Please try again.",
@@ -168,20 +150,12 @@ const JoinMatch = () => {
         return;
       }
 
-      const updatedMatch = updatedMatches[0];
-      console.log("✅ Match updated successfully:", updatedMatch);
-
-      // Deduct bet amount from user's balance
-      console.log("💰 Deducting balance...");
       const { success: deductSuccess, error: deductError } = await deductFromBalance(
         currentUser.id,
         match.bet_amount
       );
 
       if (!deductSuccess) {
-        console.error("❌ Balance deduction failed:", deductError);
-        // Try to rollback the match update
-        console.log("🔄 Attempting to rollback match update...");
         await supabase
           .from("matches")
           .update({
@@ -195,11 +169,7 @@ const JoinMatch = () => {
         throw new Error(deductError || "Failed to deduct bet amount");
       }
 
-      console.log("✅ Balance deducted successfully");
-
-      // Create transaction record
-      console.log("📝 Creating transaction record...");
-      const { error: transactionError } = await supabase
+      await supabase
         .from("transactions")
         .insert({
           user_id: currentUser.id,
@@ -210,32 +180,15 @@ const JoinMatch = () => {
           match_id: match.id
         });
 
-      if (transactionError) {
-        console.error("⚠️ Transaction error (non-critical):", transactionError);
-        // Don't throw here, just log - the match join was successful
-      } else {
-        console.log("✅ Transaction created successfully");
-      }
-
-      console.log("🎉 JOIN PROCESS COMPLETED SUCCESSFULLY");
-
       toast({
         title: "Successfully Joined!",
         description: "You have joined the match. Good luck!",
       });
 
-      // Navigate to featured match details
       navigate(`/featured-match/${match.id}`);
 
     } catch (error: any) {
-      console.error("💥 CRITICAL ERROR in join process:", error);
-      console.error("Error details:", {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
-      
+      console.error("Error joining match:", error);
       toast({
         title: "Failed to Join",
         description: error.message || "There was an error joining the match",
@@ -275,10 +228,21 @@ const JoinMatch = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold">{match.title}</h1>
-          <p className="text-gray-400">{match.description}</p>
+      <div className="max-w-6xl mx-auto space-y-8">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            {gameModeIcons[match.game_mode as keyof typeof gameModeIcons] || <Gamepad2 className="h-6 w-6" />}
+            <h1 className="text-3xl font-bold text-tacktix-blue">{match.title}</h1>
+            {match.is_vip_match && (
+              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">
+                <Crown className="h-4 w-4 mr-1" />
+                VIP
+              </Badge>
+            )}
+          </div>
+          {match.description && (
+            <p className="text-gray-400 text-lg">{match.description}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -288,45 +252,77 @@ const JoinMatch = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
-                  Match Details
+                  Match Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Game Mode</span>
-                  <Badge variant="outline">{match.game_mode}</Badge>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                      <span className="text-gray-400">Game Mode</span>
+                      <div className="flex items-center gap-2">
+                        {gameModeIcons[match.game_mode as keyof typeof gameModeIcons]}
+                        <span className="font-medium">
+                          {gameModeNames[match.game_mode as keyof typeof gameModeNames] || match.game_mode}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {match.map_name && (
+                      <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                        <span className="text-gray-400">Map</span>
+                        <span className="font-medium">{match.map_name}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                      <span className="text-gray-400">Team Size</span>
+                      <Badge variant="outline">{match.team_size}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                      <span className="text-gray-400">Entry Fee</span>
+                      <span className="font-bold text-tacktix-blue">₦{match.bet_amount?.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                      <span className="text-gray-400">Prize Pool</span>
+                      <span className="font-bold text-green-500">₦{match.prize_pool?.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                      <span className="text-gray-400">Players</span>
+                      <span className="font-medium">{match.current_players}/{match.max_players}</span>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Map</span>
-                  <span className="font-medium">{match.map_name}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Bet Amount</span>
-                  <span className="font-medium">₦{match.bet_amount.toLocaleString()}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Prize Pool</span>
-                  <span className="font-medium text-green-500">₦{match.prize_pool.toLocaleString()}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Players</span>
-                  <span className="font-medium">{match.current_players}/{match.max_players}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Status</span>
-                  <Badge variant={match.status === 'pending' ? 'default' : 'secondary'}>
-                    {match.status}
-                  </Badge>
-                </div>
-                
+
+                {match.lobby_code && (
+                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Lobby Code</span>
+                      <code className="text-lg font-mono bg-tacktix-dark-light px-3 py-1 rounded">
+                        {match.lobby_code}
+                      </code>
+                    </div>
+                  </div>
+                )}
+
+                {match.host_notes && (
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <h4 className="font-medium mb-2 text-yellow-500">Host Notes</h4>
+                    <p className="text-sm text-gray-300">{match.host_notes}</p>
+                  </div>
+                )}
+
                 {match.scheduled_time && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">Scheduled</span>
+                  <div className="flex items-center justify-between p-3 bg-tacktix-dark-light rounded-lg">
+                    <span className="text-gray-400 flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Scheduled Time
+                    </span>
                     <span className="font-medium">
                       {new Date(match.scheduled_time).toLocaleString()}
                     </span>
@@ -397,8 +393,9 @@ const JoinMatch = () => {
                     className="w-full"
                     onClick={handleJoinMatch}
                     disabled={!canJoin || isJoining}
+                    variant={match.is_vip_match ? "gradient" : "default"}
                   >
-                    {isJoining ? "Joining..." : `Join Match - ₦${match.bet_amount.toLocaleString()}`}
+                    {isJoining ? "Joining..." : `Join Match - ₦${match.bet_amount?.toLocaleString()}`}
                   </Button>
                 )}
 
