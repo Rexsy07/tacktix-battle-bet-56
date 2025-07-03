@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -34,6 +34,7 @@ const FeatureMatchDetails = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchMatchDetails = async () => {
@@ -634,8 +635,11 @@ const FeatureMatchDetails = () => {
                   Go Back
                 </Button>
                 
-                {match.status === "active" && (
-                  <Button variant="gradient">
+                {match.status === "active" && currentUser && (match.host_id === currentUser.id || match.opponent_id === currentUser.id) && (
+                  <Button 
+                    variant="gradient"
+                    onClick={() => navigate(`/submit-result/${match.id}`)}
+                  >
                     Submit Result
                   </Button>
                 )}

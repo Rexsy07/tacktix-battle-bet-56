@@ -1,12 +1,11 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, XCircle, Upload, Loader2, AlertCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface MatchResultSubmissionProps {
@@ -40,6 +39,39 @@ const MatchResultSubmission = ({
     setEvidenceFiles(evidenceFiles.filter((_, i) => i !== index));
   };
   
+  const uploadFiles = async () => {
+    const evidenceUrls: string[] = [];
+    
+    for (const file of evidenceFiles) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${matchId}/${currentUserId}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('match-evidence')
+        .upload(fileName, file);
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('match-evidence')
+        .getPublicUrl(fileName);
+      
+      evidenceUrls.push(publicUrl);
+      
+      // Store evidence metadata
+      await supabase.from('match_evidence').insert({
+        match_id: matchId,
+        submitted_by: currentUserId,
+        evidence_url: publicUrl,
+        evidence_type: file.type.startsWith('image/') ? 'image' : 'video',
+        file_name: file.name,
+        file_size: file.size
+      });
+    }
+    
+    return evidenceUrls;
+  };
+  
   const handleSubmit = async () => {
     if (evidenceFiles.length === 0) {
       toast({
@@ -52,10 +84,8 @@ const MatchResultSubmission = ({
     
     setIsSubmitting(true);
     try {
-      // For now, we'll use placeholder URLs since storage isn't configured
-      const evidenceUrls = evidenceFiles.map((file, index) => 
-        `https://via.placeholder.com/400x300.png?text=Evidence+${index + 1}`
-      );
+      // Upload files first
+      const evidenceUrls = await uploadFiles();
       
       // Determine winner based on result type
       let winnerId = null;
@@ -71,8 +101,7 @@ const MatchResultSubmission = ({
           submitted_by: currentUserId,
           result_type: resultType,
           winner_id: winnerId,
-          evidence_urls: evidenceUrls,
-          description: description || null
+          notes: description || null
         });
         
       if (error) throw error;
@@ -161,8 +190,8 @@ const MatchResultSubmission = ({
             <div className="grid grid-cols-3 gap-2 mt-2">
               {evidenceFiles.map((file, index) => (
                 <div key={index} className="relative group">
-                  <div className="h-20 w-full bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
-                    <span className="text-xs text-gray-600 text-center p-2">
+                  <div className="h-20 w-full bg-tacktix-dark-light rounded border border-tacktix-dark flex items-center justify-center">
+                    <span className="text-xs text-white text-center p-2">
                       {file.name.length > 20 ? file.name.substring(0, 20) + "..." : file.name}
                     </span>
                   </div>
@@ -178,11 +207,11 @@ const MatchResultSubmission = ({
             </div>
           ) : (
             <div 
-              className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+              className="border-2 border-dashed border-gray-700 rounded-md p-6 text-center cursor-pointer hover:bg-tacktix-dark-light/30 transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">
+              <Upload className="mx-auto h-8 w-8 text-gray-500 mb-2" />
+              <p className="text-sm text-gray-400">
                 Click to upload screenshots or videos
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -200,14 +229,15 @@ const MatchResultSubmission = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
+            className="bg-tacktix-dark-deeper border-tacktix-dark-light"
           />
         </div>
 
-        <div className="flex items-start space-x-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+        <div className="flex items-start space-x-2 text-sm text-blue-600 bg-blue-500/10 p-3 rounded-lg">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
             <p className="font-medium">Review Process</p>
-            <p>Your submission will be reviewed by our team within 24 hours</p>
+            <p className="text-gray-400">Your submission will be reviewed by our team within 24 hours</p>
           </div>
         </div>
         

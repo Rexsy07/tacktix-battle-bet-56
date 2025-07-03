@@ -6,59 +6,60 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
-import ProfileSetup from "./pages/ProfileSetup";
-import Wallet from "./pages/Wallet";
-import History from "./pages/History";
-import Matchmaking from "./pages/Matchmaking";
-import Leaderboards from "./pages/Leaderboards";
-import DuelChallenge from "./pages/DuelChallenge";
-import VipDashboard from "./pages/VipDashboard";
-import ModeratorPanel from "./pages/ModeratorPanel";
+import SignIn from "./pages/SignIn";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import HowItWorks from "./pages/HowItWorks";
-import FeatureMatchDetails from "./pages/FeatureMatchDetails";
 import Profile from "./pages/Profile";
+import ProfileSetup from "./pages/ProfileSetup";
+import Matchmaking from "./pages/Matchmaking";
 import JoinMatch from "./pages/JoinMatch";
+import FeatureMatchDetails from "./pages/FeatureMatchDetails";
+import SubmitResult from "./pages/SubmitResult";
+import Wallet from "./pages/Wallet";
+import History from "./pages/History";
+import Leaderboards from "./pages/Leaderboards";
+import HowItWorks from "./pages/HowItWorks";
+import VipDashboard from "./pages/VipDashboard";
+import DuelChallenge from "./pages/DuelChallenge";
 import Spectate from "./pages/Spectate";
+import ModeratorPanel from "./pages/ModeratorPanel";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
+    <TooltipProvider>
+      <AuthProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/sign-in" element={<SignIn />} />
             <Route path="/sign-up" element={<SignUp />} />
+            <Route path="/sign-in" element={<SignIn />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/profile-setup" element={<ProfileSetup />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/profile-setup" element={<ProfileSetup />} />
+            <Route path="/matchmaking" element={<Matchmaking />} />
+            <Route path="/join-match/:matchId" element={<JoinMatch />} />
+            <Route path="/featured-match/:matchId" element={<FeatureMatchDetails />} />
+            <Route path="/submit-result/:matchId" element={<SubmitResult />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/history" element={<History />} />
-            <Route path="/matchmaking" element={<Matchmaking />} />
             <Route path="/leaderboards" element={<Leaderboards />} />
-            <Route path="/join-match/:matchId" element={<JoinMatch />} />
-            <Route path="/spectate/:id" element={<Spectate />} />
-            <Route path="/duel-challenge" element={<DuelChallenge />} />
-            <Route path="/vip-dashboard" element={<VipDashboard />} />
-            <Route path="/moderator-panel" element={<ModeratorPanel />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route path="/featured-match/:matchId" element={<FeatureMatchDetails />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/vip" element={<VipDashboard />} />
+            <Route path="/duel-challenge" element={<DuelChallenge />} />
+            <Route path="/spectate" element={<Spectate />} />
+            <Route path="/moderator" element={<ModeratorPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
