@@ -10,8 +10,8 @@ export const getFeaturedMatches = async (limit: number = 5) => {
       .from("matches")
       .select(`
         *,
-        host:profiles!matches_host_id_fkey(*),
-        opponent:profiles!matches_opponent_id_fkey(*)
+        host:profiles!matches_created_by_fkey(*),
+        winner:profiles!matches_winner_id_fkey(*)
       `)
       .in("status", ["open", "active"])
       .order("bet_amount", { ascending: false })
@@ -39,8 +39,8 @@ export const getLiveMatches = async (limit: number = 6) => {
       .from("matches")
       .select(`
         *,
-        host:profiles!matches_host_id_fkey(*),
-        opponent:profiles!matches_opponent_id_fkey(*)
+        host:profiles!matches_created_by_fkey(*),
+        winner:profiles!matches_winner_id_fkey(*)
       `)
       .in("status", ["active"])
       .order("created_at", { ascending: false })

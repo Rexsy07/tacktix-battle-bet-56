@@ -61,8 +61,8 @@ const Navbar = () => {
     { name: "Profile", path: "/profile", icon: <User className="w-4 h-4 mr-2" />, showAlways: false },
     { name: "History", path: "/history", icon: <History className="w-4 h-4 mr-2" />, showAlways: false },
     { name: "Leaderboards", path: "/leaderboards", icon: <Trophy className="w-4 h-4 mr-2" />, showAlways: true },
-    { name: "VIP", path: "/vip-dashboard", icon: <Flame className="w-4 h-4 mr-2" />, showAlways: false },
-    { name: "Moderator", path: "/moderator-panel", icon: <Shield className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "VIP", path: "/vip", icon: <Flame className="w-4 h-4 mr-2" />, showAlways: false },
+    { name: "Moderator", path: "/moderator", icon: <Shield className="w-4 h-4 mr-2" />, showAlways: false },
   ];
 
   const filteredNavLinks = navLinks.filter(link => link.showAlways || user);

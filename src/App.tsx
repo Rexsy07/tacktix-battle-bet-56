@@ -46,15 +46,18 @@ const App = () => (
             <Route path="/matchmaking" element={<Matchmaking />} />
             <Route path="/join-match/:matchId" element={<JoinMatch />} />
             <Route path="/featured-match/:matchId" element={<FeatureMatchDetails />} />
+            <Route path="/match-details/:matchId" element={<FeatureMatchDetails />} />
             <Route path="/submit-result/:matchId" element={<SubmitResult />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/history" element={<History />} />
             <Route path="/leaderboards" element={<Leaderboards />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/vip" element={<VipDashboard />} />
+            <Route path="/vip-dashboard" element={<VipDashboard />} />
             <Route path="/duel-challenge" element={<DuelChallenge />} />
             <Route path="/spectate" element={<Spectate />} />
             <Route path="/moderator" element={<ModeratorPanel />} />
+            <Route path="/moderator-panel" element={<ModeratorPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -434,7 +434,7 @@ const Matchmaking = () => {
                       </p>
                     </div>
                   </Card>
-                ) : matches.length > 0 ? (
+                ) : Array.isArray(matches) && matches.length > 0 ? (
                   matches.map(match => (
                     <MatchCard 
                       key={match.id} 
