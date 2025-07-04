@@ -1,260 +1,269 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useToast } from "@/components/ui/use-toast";
-import { CheckCircle, Upload, User, Wallet } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ProfileSetup = () => {
-  const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeStep, setActiveStep] = useState(1);
-  const [avatarSrc, setAvatarSrc] = useState("");
-  const [codmId, setCodmId] = useState("");
-  const [username, setUsername] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("bank");
-  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState({
+    username: "",
+    bio: "",
+    country: "",
+    skill_level: "beginner",
+    gaming_experience: "beginner",
+    favorite_game: "Call of Duty Mobile",
+    preferred_game_modes: []
+  });
 
-  const handleNextStep = () => {
-    if (activeStep === 1 && !codmId) {
+  const countries = [
+    "Nigeria", "Ghana", "Kenya", "South Africa", "Egypt", "Morocco", "Tunisia", 
+    "Uganda", "Tanzania", "Ethiopia", "Other"
+  ];
+
+  const skillLevels = [
+    { value: "beginner", label: "Beginner" },
+    { value: "intermediate", label: "Intermediate" },
+    { value: "advanced", label: "Advanced" },
+    { value: "expert", label: "Expert" },
+    { value: "professional", label: "Professional" }
+  ];
+
+  const gameModes = [
+    "Battle Royale", "Team Deathmatch", "Search & Destroy", "Hardpoint", 
+    "Domination", "Gunfight", "Ranked", "Zombies"
+  ];
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
+        .single();
+
+      if (data && !error) {
+        setProfile({
+          username: data.username || "",
+          bio: data.bio || "",
+          country: data.country || "",
+          skill_level: data.skill_level || "beginner",
+          gaming_experience: data.gaming_experience || "beginner",
+          favorite_game: data.favorite_game || "Call of Duty Mobile",
+          preferred_game_modes: data.preferred_game_modes || []
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
+
+  const handleGameModeToggle = (mode) => {
+    setProfile(prev => ({
+      ...prev,
+      preferred_game_modes: prev.preferred_game_modes.includes(mode)
+        ? prev.preferred_game_modes.filter(m => m !== mode)
+        : [...prev.preferred_game_modes, mode]
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!profile.username.trim()) {
       toast({
-        title: "Required Field",
-        description: "Please enter your Call of Duty Mobile ID",
-        variant: "destructive",
+        title: "Validation Error",
+        description: "Username is required",
+        variant: "destructive"
       });
       return;
     }
 
-    if (activeStep === 3) {
-      setIsLoading(true);
-      // Simulate account creation
-      setTimeout(() => {
-        setIsLoading(false);
-        toast({
-          title: "Profile Created!",
-          description: "Your TacktixEdge account is ready to go.",
-          variant: "default",
-        });
-        navigate("/wallet");
-      }, 1500);
-      return;
-    }
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          username: profile.username.trim(),
+          bio: profile.bio.trim() || null,
+          country: profile.country || null,
+          skill_level: profile.skill_level,
+          gaming_experience: profile.gaming_experience,
+          favorite_game: profile.favorite_game,
+          preferred_game_modes: profile.preferred_game_modes
+        })
+        .eq("id", user?.id);
 
-    setActiveStep(activeStep + 1);
-  };
+      if (error) throw error;
 
-  const handlePrevStep = () => {
-    setActiveStep(activeStep - 1);
-  };
+      toast({
+        title: "Success!",
+        description: "Your profile has been updated successfully"
+      });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setAvatarSrc(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const getStepContent = () => {
-    switch (activeStep) {
-      case 1:
-        return (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="codm-id">Call of Duty Mobile ID</Label>
-              <Input
-                id="codm-id"
-                placeholder="Enter your CoDM ID"
-                value={codmId}
-                onChange={(e) => setCodmId(e.target.value)}
-                className="bg-tacktix-dark-light"
-              />
-              <p className="text-sm text-gray-400">
-                This ID will be used to verify your identity during matches
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Display Username (Optional)</Label>
-              <Input
-                id="username"
-                placeholder="Choose a display name"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="bg-tacktix-dark-light"
-              />
-              <p className="text-sm text-gray-400">
-                This is how other players will see you on TacktixEdge
-              </p>
-            </div>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="space-y-6">
-            <div className="flex flex-col items-center space-y-4">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={avatarSrc} />
-                <AvatarFallback className="bg-tacktix-dark-light text-lg">
-                  {username ? username[0].toUpperCase() : <User />}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col items-center">
-                <Label
-                  htmlFor="avatar-upload"
-                  className="cursor-pointer flex items-center space-x-2 text-tacktix-blue hover:underline"
-                >
-                  <Upload size={16} />
-                  <span>Upload Profile Picture</span>
-                </Label>
-                <Input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  JPG, PNG or GIF - Max size 2MB
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      case 3:
-        return (
-          <div className="space-y-6">
-            <div className="p-4 bg-tacktix-blue/10 rounded-lg border border-tacktix-blue/20">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-tacktix-blue/20 rounded-full flex items-center justify-center">
-                  <Wallet className="h-5 w-5 text-tacktix-blue" />
-                </div>
-                <div>
-                  <h3 className="font-medium">Naira Wallet</h3>
-                  <p className="text-sm text-gray-400">
-                    Your account comes with a Naira wallet for betting and receiving winnings
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <Label>Select Default Payment Method</Label>
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className={`flex items-center space-x-2 border ${paymentMethod === 'bank' ? 'border-tacktix-blue bg-tacktix-blue/5' : 'border-white/10'} rounded-lg p-3 cursor-pointer`}
-                       onClick={() => setPaymentMethod('bank')}>
-                    <RadioGroupItem value="bank" id="bank" />
-                    <Label htmlFor="bank" className="cursor-pointer flex-1">Bank Transfer</Label>
-                  </div>
-                  <div className={`flex items-center space-x-2 border ${paymentMethod === 'card' ? 'border-tacktix-blue bg-tacktix-blue/5' : 'border-white/10'} rounded-lg p-3 cursor-pointer`}
-                       onClick={() => setPaymentMethod('card')}>
-                    <RadioGroupItem value="card" id="card" />
-                    <Label htmlFor="card" className="cursor-pointer flex-1">Credit/Debit Card</Label>
-                  </div>
-                  <div className={`flex items-center space-x-2 border ${paymentMethod === 'ussd' ? 'border-tacktix-blue bg-tacktix-blue/5' : 'border-white/10'} rounded-lg p-3 cursor-pointer`}
-                       onClick={() => setPaymentMethod('ussd')}>
-                    <RadioGroupItem value="ussd" id="ussd" />
-                    <Label htmlFor="ussd" className="cursor-pointer flex-1">USSD</Label>
-                  </div>
-                  <div className={`flex items-center space-x-2 border ${paymentMethod === 'digital' ? 'border-tacktix-blue bg-tacktix-blue/5' : 'border-white/10'} rounded-lg p-3 cursor-pointer`}
-                       onClick={() => setPaymentMethod('digital')}>
-                    <RadioGroupItem value="digital" id="digital" />
-                    <Label htmlFor="digital" className="cursor-pointer flex-1">Digital Wallet</Label>
-                  </div>
-                </div>
-              </RadioGroup>
-              <p className="text-sm text-gray-400">
-                You can change or add more payment methods later in your account settings
-              </p>
-            </div>
-          </div>
-        );
-      default:
-        return null;
+      navigate("/profile");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto py-12">
-        <Card className="glass-card overflow-hidden border-white/10">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
-            <CardDescription>
-              Set up your TacktixEdge account to start playing and earning
-            </CardDescription>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-tacktix-blue mb-2">Complete Your Profile</h1>
+          <p className="text-gray-400">
+            Set up your gaming profile to connect with other players
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Gaming Profile</CardTitle>
           </CardHeader>
-          
-          <div className="px-6">
-            <div className="relative flex justify-between mb-8">
-              {[1, 2, 3].map((step) => (
-                <div key={step} className="flex flex-col items-center z-10">
-                  <div 
-                    className={`h-10 w-10 rounded-full flex items-center justify-center 
-                    ${activeStep >= step 
-                      ? 'bg-tacktix-blue text-white' 
-                      : 'bg-tacktix-dark-light text-gray-400'}`}
-                  >
-                    {activeStep > step ? <CheckCircle className="h-5 w-5" /> : step}
-                  </div>
-                  <span 
-                    className={`text-xs mt-2 hidden md:block 
-                    ${activeStep >= step ? 'text-tacktix-blue' : 'text-gray-400'}`}
-                  >
-                    {step === 1 ? 'Game Info' : step === 2 ? 'Profile Picture' : 'Payment Setup'}
-                  </span>
-                </div>
-              ))}
-              {/* Progress line */}
-              <div className="absolute top-5 left-0 right-0 h-0.5 bg-tacktix-dark-light">
-                <div 
-                  className="h-full bg-tacktix-blue transition-all" 
-                  style={{ width: `${(activeStep - 1) * 50}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-          
           <CardContent>
-            {getStepContent()}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="username">Username *</Label>
+                  <Input
+                    id="username"
+                    value={profile.username}
+                    onChange={(e) => setProfile(prev => ({ ...prev, username: e.target.value }))}
+                    placeholder="Enter your gaming username"
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="country">Country</Label>
+                  <Select 
+                    value={profile.country} 
+                    onValueChange={(value) => setProfile(prev => ({ ...prev, country: value }))}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country} value={country}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  value={profile.bio}
+                  onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                  placeholder="Tell us about yourself and your gaming style..."
+                  rows={4}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="skill-level">Skill Level</Label>
+                  <Select 
+                    value={profile.skill_level} 
+                    onValueChange={(value) => setProfile(prev => ({ ...prev, skill_level: value }))}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {skillLevels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="gaming-experience">Gaming Experience</Label>
+                  <Select 
+                    value={profile.gaming_experience} 
+                    onValueChange={(value) => setProfile(prev => ({ ...prev, gaming_experience: value }))}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {skillLevels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>Preferred Game Modes</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                  {gameModes.map((mode) => (
+                    <Button
+                      key={mode}
+                      type="button"
+                      variant={profile.preferred_game_modes.includes(mode) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleGameModeToggle(mode)}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      {mode}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                size="lg"
+                disabled={loading}
+                variant="gradient"
+              >
+                {loading ? "Saving..." : "Complete Setup"}
+              </Button>
+            </form>
           </CardContent>
-          
-          <CardFooter className="flex justify-between pt-6">
-            <Button
-              variant="outline"
-              onClick={handlePrevStep}
-              disabled={activeStep === 1}
-            >
-              Back
-            </Button>
-            <Button
-              variant="gradient"
-              onClick={handleNextStep}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  Creating Profile...
-                </>
-              ) : activeStep === 3 ? (
-                'Complete Setup'
-              ) : (
-                'Continue'
-              )}
-            </Button>
-          </CardFooter>
         </Card>
       </div>
     </Layout>

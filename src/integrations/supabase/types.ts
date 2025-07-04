@@ -9,6 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string
+          id: string
+          is_published: boolean | null
+          priority: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_published?: boolean | null
+          priority?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_published?: boolean | null
+          priority?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_details: {
+        Row: {
+          account_name: string
+          account_number: string
+          bank_name: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_name?: string
+          account_number?: string
+          bank_name?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          bank_name?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       disputes: {
         Row: {
           admin_notes: string | null
@@ -70,6 +141,122 @@ export type Database = {
           {
             foreignKeyName: "disputes_resolved_by_fkey"
             columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string | null
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string | null
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "forum_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_group_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_groups: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_messages: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          message: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          message: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          message?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "forum_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_messages_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -278,6 +465,7 @@ export type Database = {
           scheduled_time: string | null
           start_time: string | null
           status: string | null
+          team_players: number | null
           team_size: string | null
           title: string
           updated_at: string | null
@@ -308,6 +496,7 @@ export type Database = {
           scheduled_time?: string | null
           start_time?: string | null
           status?: string | null
+          team_players?: number | null
           team_size?: string | null
           title: string
           updated_at?: string | null
@@ -338,6 +527,7 @@ export type Database = {
           scheduled_time?: string | null
           start_time?: string | null
           status?: string | null
+          team_players?: number | null
           team_size?: string | null
           title?: string
           updated_at?: string | null
@@ -512,6 +702,104 @@ export type Database = {
           wins?: number | null
         }
         Relationships: []
+      }
+      tournament_participants: {
+        Row: {
+          id: string
+          registered_at: string | null
+          status: string | null
+          tournament_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          registered_at?: string | null
+          status?: string | null
+          tournament_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          registered_at?: string | null
+          status?: string | null
+          tournament_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_participants_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          current_participants: number | null
+          description: string | null
+          end_date: string | null
+          entry_fee: number | null
+          game_mode: string
+          id: string
+          max_participants: number
+          name: string
+          prize_pool: number | null
+          start_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          current_participants?: number | null
+          description?: string | null
+          end_date?: string | null
+          entry_fee?: number | null
+          game_mode: string
+          id?: string
+          max_participants: number
+          name: string
+          prize_pool?: number | null
+          start_date: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          current_participants?: number | null
+          description?: string | null
+          end_date?: string | null
+          entry_fee?: number | null
+          game_mode?: string
+          id?: string
+          max_participants?: number
+          name?: string
+          prize_pool?: number | null
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournaments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {

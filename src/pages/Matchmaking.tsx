@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -18,9 +17,10 @@ import MatchCard from "@/components/matchmaking/MatchCard";
 
 const Matchmaking = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("create");
+  const [activeTab, setActiveTab] = useState("browse");
   const [loading, setLoading] = useState(false);
   const [matches, setMatches] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
   // Create Match State
   const [activeMode, setActiveMode] = useState("search_destroy");
@@ -81,16 +81,27 @@ const Matchmaking = () => {
     }
   ];
 
+  const matchCategories = [
+    { id: "all", name: "All Matches" },
+    { id: "1v1", name: "1v1 Matches" },
+    { id: "2v2", name: "2v2 Matches" },
+    { id: "3v3", name: "3v3 Matches" },
+    { id: "4v4", name: "4v4 Matches" },
+    { id: "5v5", name: "5v5 Matches" },
+    { id: "battle_royale", name: "Battle Royale" },
+    { id: "vip", name: "VIP Matches" }
+  ];
+
   useEffect(() => {
     if (activeTab === "browse") {
       fetchMatches();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedCategory]);
 
   const fetchMatches = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("matches")
         .select(`
           *,
@@ -98,6 +109,19 @@ const Matchmaking = () => {
         `)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
+
+      // Apply category filter
+      if (selectedCategory !== "all") {
+        if (selectedCategory === "vip") {
+          query = query.eq("is_vip_match", true);
+        } else if (selectedCategory === "battle_royale") {
+          query = query.eq("game_mode", "battle_royale");
+        } else {
+          query = query.eq("team_size", selectedCategory);
+        }
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setMatches(data || []);
@@ -156,6 +180,17 @@ const Matchmaking = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Calculate team players based on team size
+      let teamPlayers = 1;
+      if (activeMode === "battle_royale") {
+        teamPlayers = teamSize === "Solo" ? 1 : teamSize === "Duo" ? 2 : 4;
+      } else {
+        const sizeMatch = teamSize.match(/(\d+)v\d+/);
+        if (sizeMatch) {
+          teamPlayers = parseInt(sizeMatch[1]);
+        }
+      }
+
       const { error } = await supabase
         .from("matches")
         .insert({
@@ -172,6 +207,7 @@ const Matchmaking = () => {
           prize_pool: fee * 2,
           max_players: parseInt(maxPlayers),
           team_size: teamSize,
+          team_players: teamPlayers,
           scheduled_time: scheduledTime || null,
           is_vip_match: isVIPMatch,
           status: "pending"
@@ -213,7 +249,7 @@ const Matchmaking = () => {
       case "gunfight":
         return teamSize === "1v1" ? ["2"] : ["4"];
       case "battle_royale":
-        return teamSize === "Solo" ? ["1"] : teamSize === "Duo" ? ["2"] : ["4"];
+        return teamSize === "Solo" ? ["1"] : teamSize === "Duo" ? ["4"] : ["8"];
       case "search_destroy":
         return teamSize === "1v1" ? ["2"] : teamSize === "2v2" ? ["4"] : teamSize === "3v3" ? ["6"] : teamSize === "4v4" ? ["8"] : ["10"];
       default:
@@ -233,11 +269,73 @@ const Matchmaking = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="create">Create Match</TabsTrigger>
             <TabsTrigger value="browse">Browse Matches</TabsTrigger>
+            <TabsTrigger value="create">Create Match</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="browse" className="space-y-4">
+            {/* Category Filter */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Filter by Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {matchCategories.map((category) => (
+                    <Button
+                      key={category.id}
+                      variant={selectedCategory === category.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedCategory(category.id)}
+                    >
+                      {category.name}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                {loading ? (
+                  <Card className="glass-card p-8 text-center">
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tacktix-blue mb-4"></div>
+                      <h3 className="text-xl font-medium text-white mb-2">Loading Matches</h3>
+                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                        Fetching available COD Mobile matches...
+                      </p>
+                    </div>
+                  </Card>
+                ) : Array.isArray(matches) && matches.length > 0 ? (
+                  matches.map(match => (
+                    <MatchCard 
+                      key={match.id} 
+                      match={match} 
+                      formatTimeRemaining={formatTimeRemaining}
+                    />
+                  ))
+                ) : (
+                  <Card className="glass-card p-8 text-center">
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <Gamepad2 size={48} className="text-gray-500 mb-4" />
+                      <h3 className="text-xl font-medium text-white mb-2">No Matches Found</h3>
+                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                        No COD Mobile matches available in this category. Create your own match to get started!
+                      </p>
+                      <Button variant="gradient" onClick={() => setActiveTab("create")}>
+                        Create a Match
+                        <Plus size={16} className="ml-2" />
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
           <TabsContent value="create" className="space-y-6">
+            
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -339,7 +437,8 @@ const Matchmaking = () => {
                         <Label>Team Size *</Label>
                         <Select value={teamSize} onValueChange={(value) => {
                           setTeamSize(value);
-                          setMaxPlayers(getMaxPlayersForMode()[0] || "2");
+                          const maxPlayersOptions = getMaxPlayersForMode();
+                          setMaxPlayers(maxPlayersOptions[0] || "2");
                         }} disabled={isCreating}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select team size" />
@@ -419,46 +518,6 @@ const Matchmaking = () => {
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="browse" className="space-y-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                {loading ? (
-                  <Card className="glass-card p-8 text-center">
-                    <div className="flex flex-col items-center justify-center py-6">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tacktix-blue mb-4"></div>
-                      <h3 className="text-xl font-medium text-white mb-2">Loading Matches</h3>
-                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                        Fetching available COD Mobile matches...
-                      </p>
-                    </div>
-                  </Card>
-                ) : Array.isArray(matches) && matches.length > 0 ? (
-                  matches.map(match => (
-                    <MatchCard 
-                      key={match.id} 
-                      match={match} 
-                      formatTimeRemaining={formatTimeRemaining}
-                    />
-                  ))
-                ) : (
-                  <Card className="glass-card p-8 text-center">
-                    <div className="flex flex-col items-center justify-center py-6">
-                      <Gamepad2 size={48} className="text-gray-500 mb-4" />
-                      <h3 className="text-xl font-medium text-white mb-2">No Matches Found</h3>
-                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                        No COD Mobile matches available right now. Create your own match to get started!
-                      </p>
-                      <Button variant="gradient" onClick={() => setActiveTab("create")}>
-                        Create a Match
-                        <Plus size={16} className="ml-2" />
-                      </Button>
-                    </div>
-                  </Card>
-                )}
-              </div>
-            </div>
           </TabsContent>
         </Tabs>
       </div>

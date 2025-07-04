@@ -58,6 +58,9 @@ const App = () => (
             <Route path="/spectate" element={<Spectate />} />
             <Route path="/moderator" element={<ModeratorPanel />} />
             <Route path="/moderator-panel" element={<ModeratorPanel />} />
+            <Route path="/forum" element={<Forum />} />
+            <Route path="/announcements" element={<Announcements />} />
+            <Route path="/tournaments" element={<Tournaments />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

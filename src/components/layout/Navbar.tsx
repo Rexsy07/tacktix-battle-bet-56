@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, History, Search, LogIn, LogOut, Shield, Flame, Home, Trophy, Wallet } from "lucide-react";
+import { Menu, X, User, History, Search, LogIn, LogOut, Shield, Flame, Home, Trophy, Wallet, MessageCircle, Megaphone, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { getUserBalance } from "@/utils/wallet-utils";
@@ -58,6 +58,9 @@ const Navbar = () => {
   const navLinks = [
     { name: "Home", path: "/", icon: <Home className="w-4 h-4 mr-2" />, showAlways: true },
     { name: "Matchmaking", path: "/matchmaking", icon: <Search className="w-4 h-4 mr-2" />, showAlways: true },
+    { name: "Tournaments", path: "/tournaments", icon: <Crown className="w-4 h-4 mr-2" />, showAlways: true },
+    { name: "Forum", path: "/forum", icon: <MessageCircle className="w-4 h-4 mr-2" />, showAlways: true },
+    { name: "Announcements", path: "/announcements", icon: <Megaphone className="w-4 h-4 mr-2" />, showAlways: true },
     { name: "Profile", path: "/profile", icon: <User className="w-4 h-4 mr-2" />, showAlways: false },
     { name: "History", path: "/history", icon: <History className="w-4 h-4 mr-2" />, showAlways: false },
     { name: "Leaderboards", path: "/leaderboards", icon: <Trophy className="w-4 h-4 mr-2" />, showAlways: true },
