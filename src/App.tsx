@@ -24,6 +24,9 @@ import VipDashboard from "./pages/VipDashboard";
 import DuelChallenge from "./pages/DuelChallenge";
 import Spectate from "./pages/Spectate";
 import ModeratorPanel from "./pages/ModeratorPanel";
+import Forum from "./pages/Forum";
+import Announcements from "./pages/Announcements";
+import Tournaments from "./pages/Tournaments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
