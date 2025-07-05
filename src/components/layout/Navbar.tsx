@@ -69,7 +69,7 @@ const Navbar = () => {
       { name: "Profile", path: "/profile", icon: <User className="w-3 h-3" /> },
       { name: "History", path: "/history", icon: <History className="w-3 h-3" /> },
       { name: "VIP", path: "/vip", icon: <Flame className="w-3 h-3" /> },
-      ...(user && user.user_metadata?.is_moderator ? [{ name: "Mod", path: "/moderator", icon: <Shield className="w-3 h-3" /> }] : [])
+      ...(user.user_metadata?.is_moderator ? [{ name: "Moderator", path: "/moderator", icon: <Shield className="w-3 h-3" /> }] : [])
     ] : [])
   ];
 
@@ -81,14 +81,14 @@ const Navbar = () => {
     >
       <div className="container mx-auto px-3">
         {/* Main Navigation Bar */}
-        <div className="flex items-center justify-between h-12">
+        <div className="flex items-center justify-between h-10">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
-            <div className="relative h-6 w-6 rounded-full bg-gradient-to-br from-tacktix-blue to-tacktix-blue-dark flex items-center justify-center shadow-lg">
+            <div className="relative h-5 w-5 rounded-full bg-gradient-to-br from-tacktix-blue to-tacktix-blue-dark flex items-center justify-center shadow-lg">
               <span className="font-bold text-white text-xs">T</span>
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-tacktix-red rounded-full animate-pulse"></span>
+              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-tacktix-red rounded-full animate-pulse"></span>
             </div>
-            <span className="font-extrabold text-base text-gradient hidden sm:block">TacktixEdge</span>
+            <span className="font-extrabold text-sm text-gradient hidden sm:block">TacktixEdge</span>
           </Link>
 
           {/* Primary Navigation - Desktop */}
@@ -97,42 +97,42 @@ const Navbar = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-3 py-1.5 rounded-md text-sm flex items-center transition-all duration-200 ${
+                className={`px-2 py-1 rounded-md text-xs flex items-center transition-all duration-200 ${
                   location.pathname === link.path
                     ? "text-tacktix-blue font-medium bg-tacktix-blue/10"
                     : "text-gray-300 hover:text-white hover:bg-tacktix-dark-light"
                 }`}
               >
                 {link.icon}
-                <span className="ml-1.5">{link.name}</span>
+                <span className="ml-1">{link.name}</span>
               </Link>
             ))}
           </div>
 
           {/* Auth Section */}
-          <div className="hidden md:flex items-center space-x-2 flex-shrink-0">
+          <div className="hidden md:flex items-center space-x-1 flex-shrink-0">
             {user ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 <Link to="/wallet">
-                  <Button variant="ghost" size="sm" className="text-xs px-2 py-1 h-7">
+                  <Button variant="ghost" size="sm" className="text-xs px-1.5 py-0.5 h-6">
                     <Wallet className="w-3 h-3 mr-1" />
                     ₦{userBalance.toLocaleString()}
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={handleLogout}>
+                <Button variant="ghost" size="sm" className="text-xs h-6 px-1.5" onClick={handleLogout}>
                   <LogOut className="w-3 h-3 mr-1" />
                   Out
                 </Button>
               </div>
             ) : (
               <div className="flex items-center space-x-1">
-                <Button variant="ghost" size="sm" className="text-xs h-7 px-2">
+                <Button variant="ghost" size="sm" className="text-xs h-6 px-1.5">
                   <Link to="/sign-in" className="flex items-center">
                     <LogIn className="w-3 h-3 mr-1" />
                     Sign In
                   </Link>
                 </Button>
-                <Button variant="gradient" size="sm" animation="pulseglow" className="text-xs h-7 px-2">
+                <Button variant="gradient" size="sm" animation="pulseglow" className="text-xs h-6 px-1.5">
                   <Link to="/sign-up">Start</Link>
                 </Button>
               </div>
@@ -144,18 +144,18 @@ const Navbar = () => {
             className="lg:hidden text-gray-200 hover:text-white focus:outline-none ml-2"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
-            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
         </div>
 
         {/* Secondary Navigation Bar - Desktop Only */}
-        <div className="hidden lg:flex items-center justify-center py-1 border-t border-white/5">
-          <div className="flex items-center space-x-3">
+        <div className="hidden lg:flex items-center justify-center py-0.5 border-t border-white/5">
+          <div className="flex items-center space-x-2">
             {secondaryNavLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-2 py-1 rounded text-xs flex items-center transition-all duration-200 ${
+                className={`px-1.5 py-0.5 rounded text-xs flex items-center transition-all duration-200 ${
                   location.pathname === link.path
                     ? "text-tacktix-blue font-medium"
                     : "text-gray-400 hover:text-gray-200"
