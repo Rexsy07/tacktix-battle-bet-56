@@ -16,6 +16,7 @@ export const uploadMatchEvidence = async (
     if (!evidenceBucket) {
       // If no storage bucket exists, we'll store the files as base64 data URLs
       // This is a fallback solution for when storage isn't configured
+      console.log("No storage bucket found, using data URLs as fallback");
       for (const file of files) {
         const reader = new FileReader();
         const dataUrl = await new Promise<string>((resolve) => {

@@ -39,18 +39,33 @@ const ResultReviewList = () => {
 
   const fetchSubmissions = async () => {
     try {
+      console.log("Fetching match result submissions...");
       const { data, error } = await supabase
         .from("match_result_submissions")
         .select(`
           *,
-          match:matches(title, game_mode),
-          submitter:profiles!match_result_submissions_submitted_by_fkey(username),
-          winner:profiles!match_result_submissions_winner_id_fkey(username)
+          matches!inner(title, game_mode),
+          profiles!match_result_submissions_submitted_by_fkey(username),
+          winner_profile:profiles!match_result_submissions_winner_id_fkey(username)
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setSubmissions((data as any) || []);
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+
+      console.log("Fetched submissions:", data);
+      
+      // Transform the data to match expected structure
+      const transformedData = (data || []).map(submission => ({
+        ...submission,
+        match: submission.matches || null,
+        submitter: submission.profiles || null,
+        winner: submission.winner_profile || null
+      }));
+
+      setSubmissions(transformedData);
     } catch (error: any) {
       console.error("Error fetching submissions:", error);
       toast({
@@ -58,6 +73,8 @@ const ResultReviewList = () => {
         description: "Failed to fetch result submissions",
         variant: "destructive"
       });
+      // Set empty array on error to prevent iteration issues
+      setSubmissions([]);
     } finally {
       setLoading(false);
     }
