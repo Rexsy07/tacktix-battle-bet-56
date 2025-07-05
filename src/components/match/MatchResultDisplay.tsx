@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, MessageSquare, User, Loader2, Info } from "lucide-react";
+import { Trophy, MessageSquare, User, Loader2, Info, Eye, Play } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { getMatchResult } from "@/utils/match-results-utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +61,76 @@ const MatchResultDisplay = ({ matchId, hostId, opponentId }: MatchResultDisplayP
     
     fetchData();
   }, [matchId, hostId, opponentId]);
+
+  const isVideoFile = (url: string) => {
+    return url.includes('.mp4') || url.includes('.mov') || url.includes('.avi') || url.includes('.webm');
+  };
+
+  const isDataUrl = (url: string) => {
+    return url.startsWith('data:');
+  };
+
+  const renderEvidence = (url: string, index: number) => {
+    if (isDataUrl(url)) {
+      // Handle base64 data URLs
+      if (url.startsWith('data:image')) {
+        return (
+          <img 
+            key={index}
+            src={url} 
+            alt={`Match evidence ${index + 1}`} 
+            className="rounded border border-gray-700 w-full object-cover h-32 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.open(url, '_blank')}
+          />
+        );
+      } else if (url.startsWith('data:video')) {
+        return (
+          <div key={index} className="relative">
+            <video 
+              src={url}
+              className="rounded border border-gray-700 w-full object-cover h-32"
+              controls
+              preload="metadata"
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <Play className="h-8 w-8 text-white opacity-70" />
+            </div>
+          </div>
+        );
+      }
+    } else if (isVideoFile(url)) {
+      // Handle video files from storage
+      return (
+        <div key={index} className="relative">
+          <video 
+            src={url}
+            className="rounded border border-gray-700 w-full object-cover h-32"
+            controls
+            preload="metadata"
+          />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Play className="h-8 w-8 text-white opacity-70" />
+          </div>
+        </div>
+      );
+    } else {
+      // Handle image files from storage or other URLs
+      return (
+        <img 
+          key={index}
+          src={url} 
+          alt={`Match evidence ${index + 1}`} 
+          className="rounded border border-gray-700 w-full object-cover h-32 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => window.open(url, '_blank')}
+          onError={(e) => {
+            // Fallback for broken images
+            const target = e.target as HTMLImageElement;
+            target.src = 'https://via.placeholder.com/400x300.png?text=Evidence+Unavailable';
+          }}
+        />
+      );
+    }
+  };
   
   if (loading) {
     return (
@@ -118,21 +188,7 @@ const MatchResultDisplay = ({ matchId, hostId, opponentId }: MatchResultDisplayP
           <div>
             <h4 className="text-sm font-medium text-gray-400 mb-2">Evidence:</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {result.proof_urls.map((url: string, index: number) => (
-                <a 
-                  key={index} 
-                  href={url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <img 
-                    src={url} 
-                    alt={`Match evidence ${index + 1}`} 
-                    className="rounded border border-gray-700 w-full object-cover h-24"
-                  />
-                </a>
-              ))}
+              {result.proof_urls.map((url: string, index: number) => renderEvidence(url, index))}
             </div>
           </div>
         )}

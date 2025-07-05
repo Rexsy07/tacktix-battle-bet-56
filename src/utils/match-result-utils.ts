@@ -9,13 +9,50 @@ export const uploadMatchEvidence = async (
   try {
     const urls: string[] = [];
     
+    // Check if we have a storage bucket for match evidence
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const evidenceBucket = buckets?.find(bucket => bucket.name === 'match-evidence');
+    
+    if (!evidenceBucket) {
+      // If no storage bucket exists, we'll store the files as base64 data URLs
+      // This is a fallback solution for when storage isn't configured
+      for (const file of files) {
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+        urls.push(dataUrl);
+      }
+      return { urls };
+    }
+    
+    // Upload files to Supabase Storage
     for (const file of files) {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${matchId}/${userId}/${Date.now()}.${fileExt}`;
+      const fileName = `${matchId}/${userId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
-      // For now, we'll use a placeholder URL since storage isn't configured
-      const placeholderUrl = `https://via.placeholder.com/400x300.png?text=Match+Evidence`;
-      urls.push(placeholderUrl);
+      const { data, error } = await supabase.storage
+        .from('match-evidence')
+        .upload(fileName, file);
+      
+      if (error) {
+        console.error('Storage upload error:', error);
+        // Fall back to data URL if storage fails
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+        urls.push(dataUrl);
+      } else {
+        // Get the public URL for the uploaded file
+        const { data: publicUrl } = supabase.storage
+          .from('match-evidence')
+          .getPublicUrl(fileName);
+        
+        urls.push(publicUrl.publicUrl);
+      }
     }
     
     return { urls };

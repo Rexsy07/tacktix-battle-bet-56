@@ -6,11 +6,13 @@ import { Menu, X, User, History, Search, LogIn, LogOut, Shield, Flame, Home, Tro
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { getUserBalance } from "@/utils/wallet-utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userBalance, setUserBalance] = useState(0);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { user, signOut } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
@@ -29,14 +31,28 @@ const Navbar = () => {
   }, [location]);
 
   useEffect(() => {
-    const fetchUserBalance = async () => {
+    const fetchUserData = async () => {
       if (user) {
+        // Fetch user balance
         const balance = await getUserBalance(user.id);
         setUserBalance(balance);
+        
+        // Fetch user profile to check moderator status
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_moderator, is_vip')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserProfile(profile);
+        }
+      } else {
+        setUserProfile(null);
       }
     };
 
-    fetchUserBalance();
+    fetchUserData();
   }, [user]);
 
   const handleLogout = async () => {
@@ -69,7 +85,7 @@ const Navbar = () => {
       { name: "Profile", path: "/profile", icon: <User className="w-3 h-3" /> },
       { name: "History", path: "/history", icon: <History className="w-3 h-3" /> },
       { name: "VIP", path: "/vip", icon: <Flame className="w-3 h-3" /> },
-      ...(user.user_metadata?.is_moderator ? [{ name: "Moderator", path: "/moderator", icon: <Shield className="w-3 h-3" /> }] : [])
+      ...(userProfile?.is_moderator ? [{ name: "Moderator", path: "/moderator", icon: <Shield className="w-3 h-3" /> }] : [])
     ] : [])
   ];
 
