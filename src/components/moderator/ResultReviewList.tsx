@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,30 +39,59 @@ const ResultReviewList = () => {
   const fetchSubmissions = async () => {
     try {
       console.log("Fetching match result submissions...");
-      const { data, error } = await supabase
+      
+      // First get the submissions
+      const { data: submissionsData, error: submissionsError } = await supabase
         .from("match_result_submissions")
-        .select(`
-          *,
-          matches!inner(title, game_mode),
-          profiles!match_result_submissions_submitted_by_fkey(username),
-          winner_profile:profiles!match_result_submissions_winner_id_fkey(username)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
+      if (submissionsError) {
+        console.error("Supabase error:", submissionsError);
+        throw submissionsError;
       }
 
-      console.log("Fetched submissions:", data);
-      
+      if (!submissionsData || submissionsData.length === 0) {
+        setSubmissions([]);
+        return;
+      }
+
+      console.log("Fetched submissions:", submissionsData);
+
+      // Get match details
+      const matchIds = submissionsData.map(s => s.match_id);
+      const { data: matchesData } = await supabase
+        .from("matches")
+        .select("id, title, game_mode")
+        .in("id", matchIds);
+
+      // Get submitter profiles
+      const submitterIds = submissionsData.map(s => s.submitted_by);
+      const { data: submittersData } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", submitterIds);
+
+      // Get winner profiles
+      const winnerIds = submissionsData.filter(s => s.winner_id).map(s => s.winner_id);
+      const { data: winnersData } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", winnerIds);
+
       // Transform the data to match expected structure
-      const transformedData = (data || []).map(submission => ({
-        ...submission,
-        match: submission.matches || null,
-        submitter: submission.profiles || null,
-        winner: submission.winner_profile || null
-      }));
+      const transformedData: ResultSubmission[] = submissionsData.map(submission => {
+        const match = matchesData?.find(m => m.id === submission.match_id) || null;
+        const submitter = submittersData?.find(p => p.id === submission.submitted_by) || null;
+        const winner = submission.winner_id ? winnersData?.find(p => p.id === submission.winner_id) || null : null;
+
+        return {
+          ...submission,
+          match: match ? { title: match.title, game_mode: match.game_mode } : null,
+          submitter: submitter ? { username: submitter.username } : null,
+          winner: winner ? { username: winner.username } : null
+        };
+      });
 
       setSubmissions(transformedData);
     } catch (error: any) {
