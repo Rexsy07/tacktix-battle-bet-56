@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle, XCircle, Eye, Clock } from "lucide-react";
+import { processMatchPayout } from "@/utils/wallet-utils";
 
 interface ResultSubmission {
   id: string;
@@ -19,6 +20,7 @@ interface ResultSubmission {
   match: {
     title: string;
     game_mode: string;
+    prize_pool: number;
   } | null;
   submitter: {
     username: string;
@@ -63,7 +65,7 @@ const ResultReviewList = () => {
       const matchIds = [...new Set(submissionsData.map(s => s.match_id))];
       const { data: matchesData } = await supabase
         .from("matches")
-        .select("id, title, game_mode")
+        .select("id, title, game_mode, prize_pool")
         .in("id", matchIds);
 
       // Get submitter profiles
@@ -88,7 +90,11 @@ const ResultReviewList = () => {
 
         return {
           ...submission,
-          match: match ? { title: match.title, game_mode: match.game_mode } : null,
+          match: match ? { 
+            title: match.title, 
+            game_mode: match.game_mode,
+            prize_pool: match.prize_pool || 0
+          } : null,
           submitter: submitter ? { username: submitter.username } : null,
           winner: winner ? { username: winner.username } : null
         };
@@ -123,6 +129,19 @@ const ResultReviewList = () => {
 
       if (matchError) throw matchError;
 
+      // Process payout with platform fee if there's a winner and prize pool
+      if (submission.winner_id && submission.match?.prize_pool && submission.match.prize_pool > 0) {
+        const { success: payoutSuccess, error: payoutError } = await processMatchPayout(
+          submission.winner_id,
+          submission.match_id,
+          submission.match.prize_pool
+        );
+
+        if (!payoutSuccess) {
+          throw new Error(payoutError || "Failed to process match payout");
+        }
+      }
+
       // Remove the submission after approval
       const { error: deleteError } = await supabase
         .from("match_result_submissions")
@@ -133,7 +152,7 @@ const ResultReviewList = () => {
 
       toast({
         title: "Result Approved",
-        description: "Match result has been approved and winner declared",
+        description: `Match result approved. Winner declared and prize awarded (₦${((submission.match?.prize_pool || 0) * 0.9).toLocaleString()})`,
       });
 
       fetchSubmissions();
@@ -215,10 +234,14 @@ const ResultReviewList = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                   <div>
                     <p className="text-gray-400">Game Mode</p>
                     <p className="font-medium">{submission.match?.game_mode || "Unknown"}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Prize Pool</p>
+                    <p className="font-medium">₦{(submission.match?.prize_pool || 0).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-gray-400">Submitted By</p>
@@ -272,7 +295,7 @@ const ResultReviewList = () => {
                     onClick={() => handleApproveResult(submission)}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve & Declare Winner
+                    Approve & Award Prize
                   </Button>
                 </div>
               </CardContent>

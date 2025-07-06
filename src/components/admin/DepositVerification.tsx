@@ -88,8 +88,8 @@ const DepositVerification = () => {
         description: `₦${Number(deposit.amount).toLocaleString()} has been credited to ${deposit.profiles.username}'s account`,
       });
 
-      // Refresh the list
-      fetchPendingDeposits();
+      // Remove the approved deposit from the list immediately
+      setPendingDeposits(prev => prev.filter(d => d.id !== deposit.id));
     } catch (error: any) {
       toast({
         title: "Approval Failed",
@@ -129,9 +129,10 @@ const DepositVerification = () => {
         description: `Deposit from ${deposit.profiles.username} has been rejected`,
       });
 
-      // Clear rejection notes and refresh the list
+      // Remove the rejected deposit from the list immediately
+      setPendingDeposits(prev => prev.filter(d => d.id !== deposit.id));
+      // Clear rejection notes
       setRejectionNotes(prev => ({ ...prev, [deposit.id]: "" }));
-      fetchPendingDeposits();
     } catch (error: any) {
       toast({
         title: "Rejection Failed",

@@ -1,85 +1,120 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import BankSearchSelect from "./BankSearchSelect";
+import { getUserBalance, deductFromBalance } from "@/utils/wallet-utils";
 
 interface WithdrawFormProps {
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
+  const { toast } = useToast();
   const [amount, setAmount] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
-  const [bankCode, setBankCode] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [bankCode, setBankCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [balance, setBalance] = useState(0);
 
-  const handleBankChange = (value: string) => {
-    setBankCode(value);
+  useEffect(() => {
+    fetchBalance();
+  }, []);
+
+  const fetchBalance = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const userBalance = await getUserBalance(session.user.id);
+      setBalance(userBalance);
+    } catch (error) {
+      console.error("Error fetching balance:", error);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!amount || !accountNumber || !bankCode) {
+    if (!amount || !accountNumber || !accountName || !bankCode) {
       toast({
-        title: "Validation Error",
+        title: "Missing Information",
         description: "Please fill in all required fields",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     const withdrawAmount = parseFloat(amount);
-    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
+    if (withdrawAmount <= 0) {
       toast({
         title: "Invalid Amount",
-        description: "Please enter a valid withdrawal amount",
-        variant: "destructive"
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (withdrawAmount > balance) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You don't have enough funds for this withdrawal",
+        variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Authentication required");
+      }
+
+      // Deduct amount from user's balance
+      const { success, error: deductError } = await deductFromBalance(session.user.id, withdrawAmount);
+      
+      if (!success) {
+        throw new Error(deductError || "Failed to deduct from balance");
+      }
 
       // Create withdrawal transaction
-      const { error } = await supabase
+      const { error: transactionError } = await supabase
         .from("transactions")
         .insert({
-          user_id: user.id,
+          user_id: session.user.id,
           type: "withdrawal",
-          amount: -withdrawAmount,
+          amount: withdrawAmount,
           status: "pending",
-          description: `Withdrawal to ${accountName} (${accountNumber})`
+          description: `Withdrawal to ${accountName} - ${accountNumber} (Bank Code: ${bankCode})`
         });
 
-      if (error) throw error;
+      if (transactionError) throw transactionError;
 
       toast({
-        title: "Withdrawal Request Submitted",
-        description: "Your withdrawal request has been submitted for processing",
+        title: "Withdrawal Requested",
+        description: `Your withdrawal of ₦${withdrawAmount.toLocaleString()} has been submitted for processing`,
       });
 
       // Reset form
       setAmount("");
       setAccountNumber("");
-      setBankCode("");
       setAccountName("");
-      onSuccess();
+      setBankCode("");
+      
+      onSuccess?.();
+      fetchBalance(); // Refresh balance
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to submit withdrawal request",
-        variant: "destructive"
+        title: "Withdrawal Failed",
+        description: error.message || "Failed to process withdrawal",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -90,57 +125,65 @@ const WithdrawForm = ({ onSuccess }: WithdrawFormProps) => {
     <Card>
       <CardHeader>
         <CardTitle>Withdraw Funds</CardTitle>
+        <p className="text-sm text-gray-400">
+          Current Balance: ₦{balance.toLocaleString()}
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="amount">Amount (₦)</Label>
             <Input
               id="amount"
               type="number"
-              placeholder="Enter amount to withdraw"
+              placeholder="Enter amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              min="100"
-              step="0.01"
+              min="1"
+              max={balance}
               required
             />
           </div>
-          
-          <div>
-            <Label htmlFor="bank">Select Bank</Label>
-            <BankSearchSelect 
+
+          <div className="space-y-2">
+            <Label htmlFor="bank">Bank</Label>
+            <BankSearchSelect
               value={bankCode}
-              onChange={handleBankChange}
-              disabled={isLoading}
+              onValueChange={setBankCode}
+              placeholder="Select your bank"
             />
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="accountNumber">Account Number</Label>
             <Input
               id="accountNumber"
+              type="text"
               placeholder="Enter your account number"
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
-              maxLength={10}
               required
             />
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="accountName">Account Name</Label>
             <Input
               id="accountName"
+              type="text"
               placeholder="Enter account holder name"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               required
             />
           </div>
-          
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Processing..." : "Submit Withdrawal Request"}
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || !amount || !accountNumber || !accountName || !bankCode}
+          >
+            {isLoading ? "Processing..." : `Withdraw ₦${amount || "0"}`}
           </Button>
         </form>
       </CardContent>

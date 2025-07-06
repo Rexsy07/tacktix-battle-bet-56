@@ -70,3 +70,51 @@ export const addToBalance = async (userId: string, amount: number): Promise<{ su
     return { success: false, error: error.message };
   }
 };
+
+export const processMatchPayout = async (
+  winnerId: string, 
+  matchId: string, 
+  prizeAmount: number
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Calculate platform fee (10%)
+    const platformFee = prizeAmount * 0.10;
+    const winnerPayout = prizeAmount - platformFee;
+
+    // Add winnings to winner's balance
+    const { success: addSuccess, error: addError } = await addToBalance(winnerId, winnerPayout);
+    
+    if (!addSuccess) {
+      throw new Error(addError || "Failed to add winnings to winner's balance");
+    }
+
+    // Record platform earnings
+    const { error: platformError } = await supabase
+      .from("platform_earnings")
+      .insert({
+        match_id: matchId,
+        amount: platformFee
+      });
+
+    if (platformError) throw platformError;
+
+    // Create winner transaction record
+    const { error: transactionError } = await supabase
+      .from("transactions")
+      .insert({
+        user_id: winnerId,
+        type: "match_winnings",
+        amount: winnerPayout,
+        status: "completed",
+        match_id: matchId,
+        description: `Match winnings (₦${prizeAmount.toLocaleString()} - ₦${platformFee.toLocaleString()} platform fee)`
+      });
+
+    if (transactionError) throw transactionError;
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error processing match payout:", error);
+    return { success: false, error: error.message };
+  }
+};
