@@ -72,16 +72,20 @@ const DepositVerification = () => {
         throw new Error(walletError || "Failed to add funds to wallet");
       }
 
-      // Update transaction status
+      // Update transaction status using proper field validation
       const { error: updateError } = await supabase
         .from("transactions")
         .update({ 
           status: "completed",
-          description: `${deposit.description} - Verified and approved by admin`
+          description: `${deposit.description} - Verified and approved by admin`,
+          updated_at: new Date().toISOString()
         })
         .eq("id", deposit.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Transaction update error:", updateError);
+        throw new Error(`Failed to update transaction: ${updateError.message}`);
+      }
 
       toast({
         title: "Deposit Approved",
@@ -91,6 +95,7 @@ const DepositVerification = () => {
       // Remove the approved deposit from the list immediately
       setPendingDeposits(prev => prev.filter(d => d.id !== deposit.id));
     } catch (error: any) {
+      console.error("Approval error:", error);
       toast({
         title: "Approval Failed",
         description: error.message || "Failed to approve deposit",
@@ -118,11 +123,15 @@ const DepositVerification = () => {
         .from("transactions")
         .update({ 
           status: "rejected",
-          description: `${deposit.description} - Rejected: ${notes}`
+          description: `${deposit.description} - Rejected: ${notes}`,
+          updated_at: new Date().toISOString()
         })
         .eq("id", deposit.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Transaction rejection error:", error);
+        throw new Error(`Failed to reject transaction: ${error.message}`);
+      }
 
       toast({
         title: "Deposit Rejected",
@@ -134,6 +143,7 @@ const DepositVerification = () => {
       // Clear rejection notes
       setRejectionNotes(prev => ({ ...prev, [deposit.id]: "" }));
     } catch (error: any) {
+      console.error("Rejection error:", error);
       toast({
         title: "Rejection Failed",
         description: error.message || "Failed to reject deposit",

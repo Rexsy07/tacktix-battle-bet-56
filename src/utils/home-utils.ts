@@ -227,3 +227,31 @@ export const fetchLeaderboard = async () => {
     return [];
   }
 };
+
+// Export aliases for backward compatibility
+export const getFeaturedMatches = async () => {
+  const data = await fetchFeaturedMatches();
+  return { success: true, data };
+};
+
+export const getLiveMatches = async () => {
+  const data = await fetchLiveMatches();
+  return { success: true, data };
+};
+
+export const getLeaderboardData = async () => {
+  const data = await fetchLeaderboard();
+  return { success: true, data };
+};
+
+export const getGameModes = async () => {
+  // Mock game modes data for now
+  const gameModes = [
+    { id: "battle-royale", name: "Battle Royale", description: "Last player standing wins" },
+    { id: "team-deathmatch", name: "Team Deathmatch", description: "Team vs team combat" },
+    { id: "domination", name: "Domination", description: "Control key areas" },
+    { id: "search-destroy", name: "Search & Destroy", description: "Plant or defuse the bomb" }
+  ];
+  
+  return { success: true, data: gameModes };
+};
