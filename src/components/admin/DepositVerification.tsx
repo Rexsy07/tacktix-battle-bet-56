@@ -45,7 +45,7 @@ const DepositVerification = () => {
           )
         `)
         .eq("type", "deposit")
-        .eq("status", "pending_verification")
+        .in("status", ["pending", "pending_verification"])
         .order("created_at", { ascending: true });
 
       if (error) throw error;

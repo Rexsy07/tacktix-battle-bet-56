@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,25 +60,25 @@ const ResultReviewList = () => {
       console.log("Fetched submissions:", submissionsData);
 
       // Get match details
-      const matchIds = submissionsData.map(s => s.match_id);
+      const matchIds = [...new Set(submissionsData.map(s => s.match_id))];
       const { data: matchesData } = await supabase
         .from("matches")
         .select("id, title, game_mode")
         .in("id", matchIds);
 
       // Get submitter profiles
-      const submitterIds = submissionsData.map(s => s.submitted_by);
+      const submitterIds = [...new Set(submissionsData.map(s => s.submitted_by))];
       const { data: submittersData } = await supabase
         .from("profiles")
         .select("id, username")
         .in("id", submitterIds);
 
       // Get winner profiles
-      const winnerIds = submissionsData.filter(s => s.winner_id).map(s => s.winner_id);
-      const { data: winnersData } = await supabase
+      const winnerIds = [...new Set(submissionsData.filter(s => s.winner_id).map(s => s.winner_id))];
+      const { data: winnersData } = winnerIds.length > 0 ? await supabase
         .from("profiles")
         .select("id, username")
-        .in("id", winnerIds);
+        .in("id", winnerIds) : { data: [] };
 
       // Transform the data to match expected structure
       const transformedData: ResultSubmission[] = submissionsData.map(submission => {
