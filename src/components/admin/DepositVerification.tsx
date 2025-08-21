@@ -35,21 +35,29 @@ const DepositVerification = () => {
 
   const fetchPendingDeposits = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: transactions, error } = await supabase
         .from("transactions")
-        .select(`
-          *,
-          profiles (
-            username,
-            phone
-          )
-        `)
+        .select("*")
         .eq("type", "deposit")
         .in("status", ["pending", "pending_verification"])
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      setPendingDeposits(data || []);
+
+      // Get user profiles separately
+      const userIds = transactions?.map(t => t.user_id) || [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, phone")
+        .in("id", userIds);
+
+      // Combine data
+      const depositsWithProfiles = transactions?.map(transaction => ({
+        ...transaction,
+        profiles: profiles?.find(p => p.id === transaction.user_id) || { username: "Unknown", phone: "N/A" }
+      })) || [];
+
+      setPendingDeposits(depositsWithProfiles);
     } catch (error: any) {
       console.error("Error fetching pending deposits:", error);
       toast({

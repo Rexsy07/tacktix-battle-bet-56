@@ -35,16 +35,28 @@ export function WithdrawalVerification() {
 
   const fetchWithdrawalRequests = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: requests, error } = await supabase
         .from('withdrawal_requests')
-        .select(`
-          *,
-          user:profiles!withdrawal_requests_user_id_fkey(username, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRequests(data || []);
+
+      // Get user profiles separately
+      const userIds = requests?.map(r => r.user_id) || [];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, email')
+        .in('id', userIds);
+
+      // Combine data
+      const requestsWithProfiles = requests?.map(request => ({
+        ...request,
+        status: request.status as 'pending' | 'approved' | 'rejected',
+        user: profiles?.find(p => p.id === request.user_id) || { username: 'Unknown', email: 'N/A' }
+      })) || [];
+
+      setRequests(requestsWithProfiles);
     } catch (error) {
       console.error('Error fetching withdrawal requests:', error);
       toast.error('Failed to fetch withdrawal requests');
@@ -73,11 +85,21 @@ export function WithdrawalVerification() {
       if (updateError) throw updateError;
 
       if (approve) {
-        // Deduct amount from user's wallet
-        const { error: walletError } = await supabase.rpc('update_user_balance', {
-          user_id: request.user_id,
-          amount_change: -Math.abs(request.amount)
-        });
+        // Deduct amount from user's wallet by updating balance directly
+        const { data: wallet, error: walletFetchError } = await supabase
+          .from('wallets')
+          .select('balance')
+          .eq('user_id', request.user_id)
+          .single();
+
+        if (walletFetchError) throw walletFetchError;
+
+        const newBalance = Math.max(0, (wallet?.balance || 0) - Math.abs(request.amount));
+        
+        const { error: walletError } = await supabase
+          .from('wallets')
+          .update({ balance: newBalance })
+          .eq('user_id', request.user_id);
 
         if (walletError) throw walletError;
 

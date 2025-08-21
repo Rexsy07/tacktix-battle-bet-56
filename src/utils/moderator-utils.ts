@@ -79,25 +79,33 @@ export const getDisputes = async (status?: string, searchQuery?: string): Promis
 
 export const getReportedUsers = async (status?: string, searchQuery?: string): Promise<{ success: boolean; data: ReportedUser[] }> => {
   try {
-    // Get users who have been involved in disputes (as a proxy for reported users)
+    // Get disputes first
     const { data: disputes, error: disputesError } = await supabase
       .from("disputes")
-      .select(`
-        *,
-        reported_user:profiles!disputes_reported_by_fkey(*)
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (disputesError) throw disputesError;
 
+    // Get all reported user IDs
+    const reportedUserIds = disputes?.map(d => d.reported_by) || [];
+    
+    // Get profiles for reported users
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .in("id", reportedUserIds);
+
     // Group disputes by reported user and count them
     const userReportCounts: { [key: string]: any } = {};
     disputes?.forEach(dispute => {
-      if (dispute.reported_user) {
-        const userId = dispute.reported_user.id;
+      const userId = dispute.reported_by;
+      const userProfile = profiles?.find(p => p.id === userId);
+      
+      if (userProfile) {
         if (!userReportCounts[userId]) {
           userReportCounts[userId] = {
-            user: dispute.reported_user,
+            user: userProfile,
             reportCount: 0,
             latestReport: { created_at: dispute.created_at },
             status: "active"

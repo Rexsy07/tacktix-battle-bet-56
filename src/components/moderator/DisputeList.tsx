@@ -32,16 +32,27 @@ const DisputeList = () => {
 
   const fetchDisputes = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: disputes, error } = await supabase
         .from("disputes")
-        .select(`
-          *,
-          reporter:profiles!disputes_reported_by_fkey(username)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setDisputes(data || []);
+
+      // Get reporter profiles separately
+      const reporterIds = disputes?.map(d => d.reported_by) || [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", reporterIds);
+
+      // Combine data
+      const disputesWithReporters = disputes?.map(dispute => ({
+        ...dispute,
+        reporter: profiles?.find(p => p.id === dispute.reported_by) || { username: "Unknown" }
+      })) || [];
+
+      setDisputes(disputesWithReporters);
     } catch (error: any) {
       console.error("Error fetching disputes:", error);
       toast({

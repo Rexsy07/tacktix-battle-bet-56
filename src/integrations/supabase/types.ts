@@ -771,6 +771,10 @@ export type Database = {
         Args: { base_username: string }
         Returns: string
       }
+      update_user_balance: {
+        Args: { amount_change: number; user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

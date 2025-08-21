@@ -9,6 +9,7 @@ import DisputeList from "@/components/moderator/DisputeList";
 import UserList from "@/components/moderator/UserList";
 import MatchList from "@/components/moderator/MatchList";
 import DepositVerification from "@/components/admin/DepositVerification";
+import { WithdrawalVerification } from "@/components/admin/WithdrawalVerification";
 import ResultReviewList from "@/components/moderator/ResultReviewList";
 
 const ModeratorPanel = () => {
@@ -69,12 +70,13 @@ const ModeratorPanel = () => {
         </div>
         
         <Tabs defaultValue="results" className="w-full">
-          <TabsList className="grid grid-cols-5 w-full md:w-[700px]">
+          <TabsList className="grid grid-cols-6 w-full md:w-[800px]">
             <TabsTrigger value="results">Results</TabsTrigger>
             <TabsTrigger value="disputes">Disputes</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="matches">Matches</TabsTrigger>
             <TabsTrigger value="deposits">Deposits</TabsTrigger>
+            <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
           </TabsList>
           
           <TabsContent value="results">
@@ -95,6 +97,10 @@ const ModeratorPanel = () => {
           
           <TabsContent value="deposits">
             <DepositVerification />
+          </TabsContent>
+
+          <TabsContent value="withdrawals">
+            <WithdrawalVerification />
           </TabsContent>
         </Tabs>
       </div>

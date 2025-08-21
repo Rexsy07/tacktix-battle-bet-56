@@ -38,18 +38,35 @@ const MatchList = () => {
 
   const fetchMatches = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: matches, error } = await supabase
         .from("matches")
-        .select(`
-          *,
-          creator:profiles!matches_created_by_fkey(username),
-          winner:profiles!matches_winner_id_fkey(username)
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      setMatches(data || []);
+
+      // Get all user profiles
+      const userIds = [
+        ...matches?.map(m => m.created_by),
+        ...matches?.map(m => m.host_id),
+        ...matches?.map(m => m.winner_id)
+      ].filter(Boolean) || [];
+      
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", userIds);
+
+      // Combine data
+      const matchesWithProfiles = matches?.map(match => ({
+        ...match,
+        creator: profiles?.find(p => p.id === match.created_by) || { username: "Unknown" },
+        host: profiles?.find(p => p.id === match.host_id) || { username: "Unknown" },
+        winner: profiles?.find(p => p.id === match.winner_id) || { username: "Unknown" }
+      })) || [];
+
+      setMatches(matchesWithProfiles);
     } catch (error: any) {
       console.error("Error fetching matches:", error);
       toast({
