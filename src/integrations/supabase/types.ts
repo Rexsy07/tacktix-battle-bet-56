@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
       announcements: {
@@ -40,15 +45,7 @@ export type Database = {
           title?: string
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "announcements_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       bank_details: {
         Row: {
@@ -123,29 +120,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "disputes_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "disputes_reported_by_fkey"
-            columns: ["reported_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "disputes_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       forum_group_members: {
         Row: {
@@ -166,22 +141,7 @@ export type Database = {
           joined_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "forum_group_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "forum_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "forum_group_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       forum_groups: {
         Row: {
@@ -211,15 +171,7 @@ export type Database = {
           name?: string
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "forum_groups_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       forum_messages: {
         Row: {
@@ -246,22 +198,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "forum_messages_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "forum_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "forum_messages_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       match_evidence: {
         Row: {
@@ -291,22 +228,7 @@ export type Database = {
           match_id?: string
           submitted_by?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "match_evidence_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_evidence_submitted_by_fkey"
-            columns: ["submitted_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       match_participants: {
         Row: {
@@ -330,22 +252,31 @@ export type Database = {
           status?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "match_participants_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_participants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      match_players: {
+        Row: {
+          id: string
+          joined_at: string | null
+          match_id: string
+          team: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          match_id: string
+          team: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          match_id?: string
+          team?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       match_result_submissions: {
         Row: {
@@ -378,15 +309,7 @@ export type Database = {
           submitted_by?: string
           winner_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "match_result_submissions_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       match_results: {
         Row: {
@@ -422,22 +345,7 @@ export type Database = {
           score?: number | null
           submitted_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "match_results_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_results_participant_id_fkey"
-            columns: ["participant_id"]
-            isOneToOne: false
-            referencedRelation: "match_participants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       matches: {
         Row: {
@@ -447,7 +355,7 @@ export type Database = {
           current_players: number | null
           description: string | null
           end_time: string | null
-          entry_fee: number
+          entry_fee: number | null
           game_mode: string
           host_id: string | null
           host_notes: string | null
@@ -458,15 +366,18 @@ export type Database = {
           map_name: string | null
           match_started: boolean | null
           match_started_at: string | null
-          max_players: number
+          max_players: number | null
           opponent_id: string | null
           platform_fee: number | null
-          prize_pool: number
+          prize_pool: number | null
           scheduled_time: string | null
           start_time: string | null
           status: string | null
+          team_a_players: string[] | null
+          team_b_players: string[] | null
           team_players: number | null
           team_size: string | null
+          teams: Json | null
           title: string
           updated_at: string | null
           winner_id: string | null
@@ -478,7 +389,7 @@ export type Database = {
           current_players?: number | null
           description?: string | null
           end_time?: string | null
-          entry_fee?: number
+          entry_fee?: number | null
           game_mode: string
           host_id?: string | null
           host_notes?: string | null
@@ -489,15 +400,18 @@ export type Database = {
           map_name?: string | null
           match_started?: boolean | null
           match_started_at?: string | null
-          max_players?: number
+          max_players?: number | null
           opponent_id?: string | null
           platform_fee?: number | null
-          prize_pool?: number
+          prize_pool?: number | null
           scheduled_time?: string | null
           start_time?: string | null
           status?: string | null
+          team_a_players?: string[] | null
+          team_b_players?: string[] | null
           team_players?: number | null
           team_size?: string | null
+          teams?: Json | null
           title: string
           updated_at?: string | null
           winner_id?: string | null
@@ -509,7 +423,7 @@ export type Database = {
           current_players?: number | null
           description?: string | null
           end_time?: string | null
-          entry_fee?: number
+          entry_fee?: number | null
           game_mode?: string
           host_id?: string | null
           host_notes?: string | null
@@ -520,67 +434,47 @@ export type Database = {
           map_name?: string | null
           match_started?: boolean | null
           match_started_at?: string | null
-          max_players?: number
+          max_players?: number | null
           opponent_id?: string | null
           platform_fee?: number | null
-          prize_pool?: number
+          prize_pool?: number | null
           scheduled_time?: string | null
           start_time?: string | null
           status?: string | null
+          team_a_players?: string[] | null
+          team_b_players?: string[] | null
           team_players?: number | null
           team_size?: string | null
+          teams?: Json | null
           title?: string
           updated_at?: string | null
           winner_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "matches_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_winner_id_fkey"
-            columns: ["winner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       platform_earnings: {
         Row: {
           amount: number
-          created_at: string
+          created_at: string | null
           id: string
           match_id: string | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           amount: number
-          created_at?: string
+          created_at?: string | null
           id?: string
           match_id?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           amount?: number
-          created_at?: string
+          created_at?: string | null
           id?: string
           match_id?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "platform_earnings_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       player_ratings: {
         Row: {
@@ -610,29 +504,7 @@ export type Database = {
           rater_id?: string
           rating?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "player_ratings_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_ratings_rated_id_fkey"
-            columns: ["rated_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_ratings_rater_id_fkey"
-            columns: ["rater_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -641,6 +513,7 @@ export type Database = {
           country: string | null
           created_at: string | null
           date_of_birth: string | null
+          email: string | null
           favorite_game: string | null
           gaming_experience: string | null
           id: string
@@ -663,6 +536,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          email?: string | null
           favorite_game?: string | null
           gaming_experience?: string | null
           id: string
@@ -685,6 +559,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          email?: string | null
           favorite_game?: string | null
           gaming_experience?: string | null
           id?: string
@@ -725,22 +600,7 @@ export type Database = {
           tournament_id?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "tournament_participants_tournament_id_fkey"
-            columns: ["tournament_id"]
-            isOneToOne: false
-            referencedRelation: "tournaments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tournament_participants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       tournaments: {
         Row: {
@@ -791,15 +651,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "tournaments_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       transactions: {
         Row: {
@@ -835,22 +687,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       wallets: {
         Row: {
@@ -876,12 +713,64 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_requests: {
+        Row: {
+          account_name: string
+          account_number: string
+          admin_notes: string | null
+          amount: number
+          bank_code: string
+          created_at: string | null
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          admin_notes?: string | null
+          amount: number
+          bank_code: string
+          created_at?: string | null
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          admin_notes?: string | null
+          amount?: number
+          bank_code?: string
+          created_at?: string | null
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      assign_team_to_player: {
+        Args: { match_uuid: string; player_uuid: string }
+        Returns: number
+      }
+      generate_unique_username: {
+        Args: { base_username: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
@@ -892,21 +781,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -924,14 +817,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -947,14 +842,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -970,14 +867,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -985,14 +884,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
